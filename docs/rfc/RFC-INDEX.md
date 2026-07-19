@@ -17,7 +17,7 @@ RFCs (Requests for Comments) define how specific modules and protocols are imple
 | RFC-0101 | Planner Architecture | Proposed |
 | RFC-0102 | Execution Engine | Draft |
 | RFC-0103 | State Machine | — |
-| RFC-0104 | Rule Resolution | — |
+| RFC-0104 | Rule Resolution | Draft |
 
 ### Runtime
 | ID | Title | Status |
