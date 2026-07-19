@@ -4,24 +4,64 @@
 
 Agent OS is not an AI. It is the operating system that manages all AIs — a platform where Workflows define method, Tasks define intent, Rules embody domain knowledge, Capabilities provide reusable power, and the Kernel orchestrates everything.
 
-```
-                    Agent OS
-┌─────────────────────────────────────────────────────────┐
-│  User Plane       ──  Goals (declarative, no process)   │
-│  ───── Event Backbone ─────                             │
-│  Control Plane    ──  Kernel (stateless, sole scheduler)│
-│  Metadata Plane   ──  Registry (versioned, discoverable)│
-│  ───── Event Backbone ─────                             │
-│  Data Plane       ──  State (persistent, replayable)    │
-│  Runtime Plane    ──  Execution (capabilities, review)  │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph "User Plane"
+        G[Goal]
+    end
+
+    subgraph "Event Backbone"
+        EB[Event Bus]
+        ES[Event Store]
+    end
+
+    subgraph "Control Plane"
+        IE[Intent Engine] --> WR[Workflow Resolver]
+        WR --> PL[Planner]
+        PL --> EE[Execution Engine]
+        RM[Rule Manager]
+        SM[Security Manager]
+    end
+
+    subgraph "Metadata Plane"
+        REG[Registry<br/>Workflows / Rules /<br/>Capabilities / Profiles]
+    end
+
+    subgraph "Data Plane"
+        MM[Memory Manager<br/>Knowledge / Memory / Cache / Vector]
+    end
+
+    subgraph "Runtime Plane"
+        CP[Capability Pool]
+        MP[Model Pool]
+        TP[Tool Pool]
+        RV[Reviewer]
+        LP[Loop Engines]
+    end
+
+    G --> IE
+    EE --> EB
+    EB --> ES
+    EB --> RM
+    EB --> SM
+    EB --> MM
+    EB --> CP
+    EB --> RV
+    EB --> LP
+    PL --> REG
+    RM --> REG
+    CP --> MP
+    CP --> TP
+    EE --> CP
+    RV -.->|Events| EB
+    LP -.->|Events| EB
 ```
 
 ## Project Status
 
-**Milestone 0 — Foundation Specification** (in progress)
+**Milestone 0 — Foundation Specification** (complete)
 
-The project is currently in specification-driven development. No runtime code yet.
+The project is in specification-driven development. No runtime code yet.
 
 ## Documentation
 
@@ -39,12 +79,17 @@ The project is currently in specification-driven development. No runtime code ye
 
 ```
 agent-os/
-├── docs/          — All specification documents
-├── schemas/       — JSON Schema / YAML Schema definitions
-├── examples/      — Reference examples for all object types
-├── reference/     — Future reference implementation
-├── tools/         — Documentation generators, schema validators
-└── .github/       — CI, templates, issue forms
+├── docs/             — All specification documents
+│   ├── vision/       — VISION, PHILOSOPHY, CONSTITUTION
+│   ├── spec/         — Core Specifications (SPEC-0000+)
+│   ├── rfc/          — RFC proposals
+│   ├── adr/          — Architecture Decision Records
+│   └── glossary/     — TERMS.md
+├── schemas/          — JSON Schema definitions for all objects
+├── examples/         — Reference examples for workflows, rules, capabilities
+├── reference/        — Future reference implementation
+├── tools/            — Documentation generators, schema validators
+└── .github/          — CI, issue templates
 ```
 
 ## License

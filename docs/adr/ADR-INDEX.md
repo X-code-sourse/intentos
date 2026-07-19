@@ -4,7 +4,8 @@ Architecture Decision Records document why specific design decisions were made. 
 
 | ID | Title | Status |
 |----|-------|--------|
-| *(No ADRs yet — first decisions pending)* | | |
+| ADR-0001 | [Why We Use Event Sourcing](ADR-0001-event-sourcing.md) | Accepted |
+| ADR-0002 | [Why the Kernel Must Be Stateless](ADR-0002-kernel-stateless.md) | Accepted |
 
 ## Process
 
