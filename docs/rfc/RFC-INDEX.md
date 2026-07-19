@@ -30,7 +30,7 @@ RFCs (Requests for Comments) define how specific modules and protocols are imple
 ### Metadata
 | ID | Title | Status |
 |----|-------|--------|
-| RFC-0300 | Registry | — |
+| RFC-0300 | Registry | Draft |
 | RFC-0301 | Versioning | — |
 | RFC-0302 | Discovery Protocol | — |
 
