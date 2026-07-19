@@ -1,6 +1,6 @@
 # RFC-0101: Planner Architecture
 
-**Status:** Draft
+**Status:** Proposed
 **Type:** Control Plane RFC
 **Supersedes:** Nothing
 **Depends on:** SPEC-0000 v1.0, RFC-0001 v1.0, RFC-0002, RFC-0100 v1.0
@@ -547,6 +547,7 @@ Any implementation claiming Agent OS Planner compatibility **must**:
 | SPEC-0000 §3.3 | Workflow entity |
 | SPEC-0000 §3.7 | Capability Manifest entity |
 | SPEC-0000 §3.8 | Capability Requirement entity |
+| SPEC-0000 §3.16 | Execution Plan entity (Planner output format) |
 | RFC-0001 §3 | Task State Machine (Replan trigger) |
 | RFC-0001 §4.3 | Replan Decision |
 | RFC-0001 §8.4 | Replan loops |
