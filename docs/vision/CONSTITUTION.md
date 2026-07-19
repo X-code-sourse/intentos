@@ -2,7 +2,7 @@
 
 **Status: Accepted**
 
-This document defines the **Architectural Constitution** — principles that must never be violated. They are organized in three layers by severity. Violations of Layer I are architecture bugs. Violations of Layer II are design flaws. Violations of Layer III should trigger an ADR.
+This document defines the **Architectural Constitution** — 15 principles across four layers that must never be violated. Violations of Layer I are architecture bugs. Violations of Layer II are design flaws. Violations of Layer III or IV should trigger an ADR.
 
 ---
 
@@ -51,6 +51,19 @@ No hardcoded Capability references. No hardcoded Workflow references. All discov
 
 ### Article 12: Model Selection Is a Capability Internal Concern
 The Execution Engine must never know which model a Capability uses. Model selection, swapping, and optimization are internal decisions of each Capability. The Engine only knows that a Capability met its declared Requirements.
+
+---
+
+## Layer IV: Security Constitution (Integrity & Sovereignty)
+
+### Article 13: Security Boundary
+The Security Manager is the sole authority for authentication, authorization, and cryptographic operations. All Event signatures must be verified before acceptance. All resource access must be authorized before execution, with default-deny for any action not explicitly permitted. (Defined in RFC-0502.)
+
+### Article 14: Data Sovereignty
+Tenant data must be isolated at the storage layer. No module may access data belonging to a different tenant unless explicitly authorized by policy. Data deletion requests must be honored within the configured retention period. Execution Records may be anonymized but not deleted (audit integrity). (Defined in RFC-0502.)
+
+### Article 15: Audit Integrity
+All audit-significant state changes must be recorded in a tamper-evident hash chain. The chain must be sealed periodically to an external anchor. Any break in the chain must be treated as a security incident. (Defined in RFC-0502.)
 
 ---
 
