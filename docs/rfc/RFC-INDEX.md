@@ -24,7 +24,7 @@ RFCs (Requests for Comments) define how specific modules and protocols are imple
 |----|-------|--------|
 | RFC-0200 | Capability Contract | Draft |
 | RFC-0201 | Capability Manifest | Draft |
-| RFC-0202 | Capability Negotiation | — |
+| RFC-0202 | Capability Negotiation | Draft |
 | RFC-0203 | Runtime Scheduling | — |
 
 ### Metadata
