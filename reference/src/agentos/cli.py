@@ -27,6 +27,9 @@ from .planner import plan as do_plan
 from .reporter import format_report
 from .reviewer import review as do_review
 
+from .sdk import scaffold, discover_capabilities, load_capability, validate_capability
+from .sdk.validator import describe_fn
+
 
 # ── CLI ────────────────────────────────────────────────────────────
 
@@ -68,6 +71,35 @@ def build_parser() -> argparse.ArgumentParser:
     plan_p.add_argument("--query", "-q", required=True, help="Query parameter")
     plan_p.add_argument("--json", "-j", action="store_true", help="Output as JSON")
 
+    # ── capability subcommands (RFC-0400) ────────────────────────────
+    cap = sub.add_parser("capability", help="Capability SDK commands")
+    cap_sub = cap.add_subparsers(dest="capability_command", required=True)
+
+    # scaffold
+    scaf_p = cap_sub.add_parser("scaffold", help="Generate a new external capability skeleton")
+    scaf_p.add_argument("name", help="Capability name (kebab-case, e.g. 'hello-world')")
+    scaf_p.add_argument("--output", "-o", default=".", help="Output directory (default: current dir)")
+    scaf_p.add_argument("--display-name", help="Human-readable display name")
+    scaf_p.add_argument("--description", default="", help="Short description")
+    scaf_p.add_argument("--version", default="0.1.0", help="SemVer version")
+    scaf_p.add_argument("--tags", default="demo", help="Comma-separated tags")
+    scaf_p.add_argument("--with-schema", action="store_true",
+                        help="Include input/output JSON Schema in manifest")
+
+    # discover
+    disc_p = cap_sub.add_parser("discover", help="Discover and register external capabilities")
+    disc_p.add_argument("path", nargs="?", default=".",
+                        help="Directory to scan (default: current dir)")
+    disc_p.add_argument("--register", action="store_true",
+                        help="Register discovered capabilities (requires running Agent OS)")
+
+    # validate
+    val_p = cap_sub.add_parser("validate", help="Validate a capability manifest + handler")
+    val_p.add_argument("path", help="Path to capability directory or manifest.yaml")
+
+    # list
+    list_cap_p = cap_sub.add_parser("list", help="List registered capabilities (built-in + external)")
+
     return parser
 
 
@@ -86,6 +118,86 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_workflow_validate(args)
         elif args.workflow_command == "plan":
             return _cmd_workflow_plan(args)
+
+    elif args.command == "capability":
+        return _cmd_capability(args)
+
+    return 1
+
+
+# ── Capability subcommands (RFC-0400) ──────────────────────────────
+
+
+def _cmd_capability_scaffold(args: argparse.Namespace) -> int:
+    from .sdk.scaffold import scaffold
+    name = args.name
+    with_schema = getattr(args, "with_schema", False)
+    output_dir = getattr(args, "output", None) or "."
+    try:
+        out = scaffold(name, with_schema=with_schema, output_dir=output_dir)
+        print(f"Created capability project: {out}")
+        return 0
+    except Exception as e:
+        print(f"Scaffold failed: {e}", file=sys.stderr)
+        return 1
+
+
+def _cmd_capability_discover(args: argparse.Namespace) -> int:
+    from .sdk.loader import discover_capabilities
+    directory = getattr(args, "directory", ".")
+    try:
+        count = discover_capabilities(directory)
+        print(f"Discovered {count} external capabilities")
+        return 0
+    except Exception as e:
+        print(f"Discovery failed: {e}", file=sys.stderr)
+        return 1
+
+
+def _cmd_capability_validate(args: argparse.Namespace) -> int:
+    from .sdk.validator import validate_capability
+    path = getattr(args, "path", ".")
+    try:
+        issues = validate_capability(path)
+        if not issues:
+            print(f"✅ {path} — valid")
+            return 0
+        print(f"⚠️  {path} — {len(issues)} issue(s)")
+        for i in issues:
+            print(f"  - [{i.severity}] {i.message}")
+        return 1
+    except Exception as e:
+        print(f"Validation failed: {e}", file=sys.stderr)
+        return 1
+
+
+def _cmd_capability_list(args: argparse.Namespace) -> int:
+    from .registry import Registry
+    r = Registry()
+    r.load_builtins()
+    caps = r.list()
+    if not caps:
+        print("No capabilities registered.")
+        return 0
+    print(f"Registered capabilities ({len(caps)}):")
+    for m in sorted(caps, key=lambda x: x.task_type):
+        tags = f" [{', '.join(m.tags)}]" if m.tags else ""
+        src = m.source or "builtin"
+        print(f"  {m.task_type:20s}  v{m.version:8s}  {src:10s}{tags}")
+    return 0
+
+
+def _cmd_capability(args: argparse.Namespace) -> int:
+    """Dispatch capability subcommands."""
+    sub = getattr(args, "capability_command", None)
+    if sub == "scaffold":
+        return _cmd_capability_scaffold(args)
+    elif sub == "discover":
+        return _cmd_capability_discover(args)
+    elif sub == "validate":
+        return _cmd_capability_validate(args)
+    elif sub == "list":
+        return _cmd_capability_list(args)
     return 1
 
 

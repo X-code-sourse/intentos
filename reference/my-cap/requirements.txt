@@ -1,0 +1,2 @@
+# my-cap capability dependencies
+# agentos>=0.1.0

@@ -18,6 +18,7 @@ class CapabilityManifest:
     tags: list[str] = field(default_factory=list)
     source: str = "builtin"
     enabled: bool = True
+    entry_point: str = ""
     input_schema: dict | None = None
     output_schema: dict | None = None
 
@@ -35,6 +36,7 @@ def load_manifest_from_yaml(path: str | Path) -> CapabilityManifest:
         tags=raw.get("tags", []),
         source=raw.get("source", "external"),
         enabled=raw.get("enabled", True),
+        entry_point=raw.get("entry_point", ""),
         input_schema=raw.get("input_schema"),
         output_schema=raw.get("output_schema"),
     )

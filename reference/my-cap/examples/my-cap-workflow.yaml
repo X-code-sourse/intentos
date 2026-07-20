@@ -1,0 +1,9 @@
+id: my-cap-demo
+name: My Cap Demo
+description: A demo workflow using the my-cap capability
+tasks:
+  - id: step1
+    type: my-cap
+    params:
+      query: "Agent OS"
+    enabled: true

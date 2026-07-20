@@ -110,6 +110,37 @@ class Registry:
         for m in CAPABILITY_MANIFESTS:
             self.register_manifest(m.task_type, m)
 
+    def discover_external(
+        self,
+        path: str | Path,
+        *,
+        scan_installed: bool = False,
+    ) -> list[CapabilityManifest]:
+        """Discover and register external capabilities (RFC-0400).
+
+        Scans a directory for subdirectories containing manifest.yaml,
+        then loads and validates each one as an external capability.
+
+        Args:
+            path: Directory to scan for capabilities.
+            scan_installed: If True, also scan pip-installed packages.
+
+        Returns:
+            List of newly registered CapabilityManifest objects.
+        """
+        from ..sdk import discover_capabilities, discover_installed
+
+        manifests: list[CapabilityManifest] = []
+
+        if scan_installed:
+            try:
+                manifests.extend(discover_installed(registry=self))
+            except Exception:
+                pass
+
+        manifests.extend(discover_capabilities(path, registry=self))
+        return manifests
+
     # ── Snapshot ───────────────────────────────────────────────────
 
     def snapshot(self) -> dict:

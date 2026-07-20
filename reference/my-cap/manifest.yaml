@@ -1,0 +1,21 @@
+task_type: my-cap
+display_name: My Cap
+description: My Cap capability
+version: 0.1.0
+tags: [demo]
+source: external
+enabled: true
+entry_point: handler.handler
+
+input_schema:
+  type: object
+  properties:
+    query:
+      type: string
+      description: Input query for this capability
+output_schema:
+  type: object
+  properties:
+    result:
+      type: string
+
