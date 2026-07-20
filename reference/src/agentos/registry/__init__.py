@@ -135,8 +135,8 @@ class Registry:
         if scan_installed:
             try:
                 manifests.extend(discover_installed(registry=self))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("discover_installed failed: %s", e)
 
         manifests.extend(discover_capabilities(path, registry=self))
         return manifests

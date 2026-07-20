@@ -107,7 +107,7 @@ def validate_fn_signature(fn: Callable | None) -> list[str]:
     errors: list[str] = []
 
     if fn is None:
-        return errors  # Handled by validate_manifest
+        return ["fn is None — handler function is required"]
 
     if not callable(fn):
         errors.append("handler must be a callable")
