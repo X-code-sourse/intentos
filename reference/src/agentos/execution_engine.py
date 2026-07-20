@@ -111,6 +111,7 @@ class ExecutionEngine:
                 running[task_id] = task
                 tr = result.task_results[task_id]
 
+                tr.transition_to(TaskState.ASSIGNED, "capability_selected")
                 tr.transition_to(TaskState.RUNNING, "dispatched")
                 tr.started_at = datetime.now(timezone.utc)
                 self._publish(TASK_RUNNING, {
@@ -122,6 +123,8 @@ class ExecutionEngine:
                 inv_result = self.pool.invoke(task, {**ctx, **outputs})
 
                 if inv_result.status == "success":
+                    tr.transition_to(TaskState.WAITING_REVIEW, "capability_output_produced")
+                    tr.transition_to(TaskState.REVIEWED, "review_pending")
                     tr.transition_to(TaskState.COMPLETED, "execution_success")
                     tr.output = inv_result.output
                     tr.completed_at = datetime.now(timezone.utc)

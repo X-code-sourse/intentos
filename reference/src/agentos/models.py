@@ -12,23 +12,117 @@ from typing import Any
 # ── Task State Machine ─────────────────────────────────────────────
 
 class TaskState(str, Enum):
-    """Task states per RFC-0001 §3.1 — simplified 6-state path."""
+    """Task states per RFC-0001 §3.1 — 19 states, 27 transitions."""
 
     CREATED = "created"
     QUEUED = "queued"
+    ASSIGNED = "assigned"
     RUNNING = "running"
+    WAITING_REVIEW = "waiting_review"
+    REVIEWED = "reviewed"
+    REVIEW_FAILED = "review_failed"
     COMPLETED = "completed"
+    COMPLETED_WITH_WARNING = "completed_with_warning"
+    PARTIAL = "partial"
     FAILED = "failed"
     RETRY_QUEUED = "retry_queued"
+    REPLAN_REQUESTED = "replan_requested"
+    CANCEL_QUEUED = "cancel_queued"
+    CANCELLED = "cancelled"
+    SKIPPED = "skipped"
+    ARCHIVED = "archived"
+    PENDING_REVIEW = "pending_review"
+    PENDING_QUEUED = "pending_queued"
 
     def can_transition_to(self, target: TaskState) -> bool:
+        # RFC-0001 §3.2 transition table
         transitions = {
-            TaskState.CREATED:      {TaskState.QUEUED},
-            TaskState.QUEUED:       {TaskState.RUNNING},
-            TaskState.RUNNING:      {TaskState.COMPLETED, TaskState.FAILED},
-            TaskState.COMPLETED:    set(),
-            TaskState.FAILED:       {TaskState.RETRY_QUEUED},
-            TaskState.RETRY_QUEUED: {TaskState.QUEUED},
+            # T1
+            TaskState.CREATED: {
+                TaskState.QUEUED,
+            },
+            # T2, T25
+            TaskState.QUEUED: {
+                TaskState.ASSIGNED,
+                TaskState.SKIPPED,
+            },
+            # T3
+            TaskState.ASSIGNED: {
+                TaskState.RUNNING,
+            },
+            # T4, T4.5, T5, T6, T24
+            TaskState.RUNNING: {
+                TaskState.WAITING_REVIEW,
+                TaskState.PARTIAL,
+                TaskState.FAILED,
+                TaskState.CANCEL_QUEUED,
+            },
+            # T7, T7.5, T23
+            TaskState.WAITING_REVIEW: {
+                TaskState.REVIEWED,
+                TaskState.PENDING_REVIEW,
+                TaskState.REVIEW_FAILED,
+            },
+            # T8, T9, T10
+            TaskState.REVIEWED: {
+                TaskState.COMPLETED,
+                TaskState.COMPLETED_WITH_WARNING,
+                TaskState.REVIEW_FAILED,
+            },
+            # T11, T12
+            TaskState.REVIEW_FAILED: {
+                TaskState.RETRY_QUEUED,
+                TaskState.FAILED,
+            },
+            # T20
+            TaskState.COMPLETED: {
+                TaskState.ARCHIVED,
+            },
+            # T20.5
+            TaskState.COMPLETED_WITH_WARNING: {
+                TaskState.ARCHIVED,
+            },
+            # T18.5
+            TaskState.PARTIAL: {
+                TaskState.ARCHIVED,
+            },
+            # T13, T14, T15
+            TaskState.FAILED: {
+                TaskState.RETRY_QUEUED,
+                TaskState.REPLAN_REQUESTED,
+                TaskState.CANCELLED,
+            },
+            # T19
+            TaskState.RETRY_QUEUED: {
+                TaskState.QUEUED,
+            },
+            # T16, T17
+            TaskState.REPLAN_REQUESTED: {
+                TaskState.CANCEL_QUEUED,
+                TaskState.ARCHIVED,
+            },
+            # T18
+            TaskState.CANCEL_QUEUED: {
+                TaskState.CANCELLED,
+            },
+            # T21
+            TaskState.CANCELLED: {
+                TaskState.ARCHIVED,
+            },
+            # T22
+            TaskState.SKIPPED: {
+                TaskState.ARCHIVED,
+            },
+            # terminal
+            TaskState.ARCHIVED: set(),
+            # T26
+            TaskState.PENDING_REVIEW: {
+                TaskState.PENDING_QUEUED,
+            },
+            # T27
+            TaskState.PENDING_QUEUED: {
+                TaskState.QUEUED,
+            },
         }
         return target in transitions.get(self, set())
 
