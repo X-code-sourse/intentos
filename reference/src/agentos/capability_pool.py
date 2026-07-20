@@ -42,7 +42,7 @@ class CapabilityPool:
     v1: synchronous, in-process, no queueing.
     """
 
-    def __init__(self, registry: "AgentOSRegistry | None" = None) -> None:
+    def __init__(self, registry: "Registry | None" = None) -> None:
         self._registry_dict: dict[str, Callable] = {}
         self._invocations: dict[str, InvocationResult] = {}
         self._manifest_registry = registry
@@ -63,7 +63,7 @@ class CapabilityPool:
         if task.type in self._registry_dict:
             fn = self._registry_dict[task.type]
         elif self._manifest_registry:
-            manifest = self._manifest_registry.resolve_capability(task.type)
+            manifest = self._manifest_registry.find_by_type(task.type)
             if manifest and manifest.fn:
                 fn = manifest.fn
                 # Cache for future calls

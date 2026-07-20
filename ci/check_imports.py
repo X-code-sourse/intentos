@@ -17,6 +17,8 @@ mods = [
     "agentos.capabilities.review",
     "agentos.capabilities.report",
     "agentos.registry",
+    "agentos.registry.manifest",
+    "agentos.registry.workflows",
 ]
 for name in mods:
     importlib.import_module(name)

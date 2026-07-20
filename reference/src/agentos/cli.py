@@ -18,8 +18,7 @@ from typing import Any
 from . import __version__
 from .backbone.bus import EventBus
 from .backbone.event import Event
-from .capabilities import CAPABILITY_MANIFESTS
-from .registry import AgentOSRegistry
+from .registry import Registry
 from .execution_engine import ExecutionEngine
 from .workflow_loader import discover_workflows, load as load_workflow, load_from_path
 
@@ -143,8 +142,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
             print(f"  [event] {e.type:30s} source={e.source}", file=sys.stderr)
         bus.subscribe_all(log_event)
 
-    # Set up Registry (RFC-0300) — loads capabilities + scans workflows
-    registry = AgentOSRegistry.setup_default(bus=bus)
+    # Set up Registry (RFC-0300) — loads built-in capabilities
+    registry = Registry(bus=bus)
+    registry.load_builtins()
 
     # Create Engine with Registry-backed Pool
     engine = ExecutionEngine(bus=bus, registry=registry)

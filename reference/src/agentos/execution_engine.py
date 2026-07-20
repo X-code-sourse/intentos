@@ -44,7 +44,7 @@ class ExecutionEngine:
     """Schedules and executes a Plan's DAG (RFC-0102)."""
 
     def __init__(self, bus: EventBus | None = None,
-                 registry: "AgentOSRegistry | None" = None) -> None:
+                 registry: "Registry | None" = None) -> None:
         self.bus = bus
         self.pool = CapabilityPool(registry=registry)
 
