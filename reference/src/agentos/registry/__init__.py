@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from typing import Any, Callable
 from ..backbone.bus import EventBus
+from ..backbone.event import Event
 
 from .manifest import CapabilityManifest, load_manifest_from_yaml
 from .workflows import WorkflowIndex
@@ -33,6 +34,11 @@ class Registry:
         self._capabilities[task_type] = manifest
         manifest.task_type = task_type
         logger.debug("Registry: capability %s v%s registered", task_type, manifest.version)
+        self._publish("Registry:CapabilityRegistered", {
+            "task_type": task_type,
+            "version": manifest.version,
+            "source": manifest.source,
+        })
 
     def register(
         self,
@@ -51,6 +57,15 @@ class Registry:
         )
         self.register_manifest(task_type, m)
 
+    def deregister(self, task_type: str) -> None:
+        """Remove a capability from the registry."""
+        removed = self._capabilities.pop(task_type, None)
+        if removed:
+            logger.debug("Registry: capability %s deregistered", task_type)
+            self._publish("Registry:CapabilityDeregistered", {
+                "task_type": task_type,
+            })
+
     # ── Capability query ───────────────────────────────────────────
 
     def resolve(self, task_type: str) -> CapabilityManifest | None:
@@ -68,6 +83,20 @@ class Registry:
 
     def list_enabled(self) -> list[CapabilityManifest]:
         return [m for m in self._capabilities.values() if m.enabled]
+
+    def find_by_tags(self, tags: set[str]) -> list[CapabilityManifest]:
+        """Find capabilities that have ALL specified tags."""
+        return [
+            m for m in self._capabilities.values()
+            if m.enabled and tags.issubset(set(m.tags))
+        ]
+
+    def find_by_domain(self, domain: str) -> list[CapabilityManifest]:
+        """Find capabilities whose tags match a domain keyword."""
+        return [
+            m for m in self._capabilities.values()
+            if m.enabled and domain in m.tags
+        ]
 
     @property
     def count(self) -> int:
@@ -91,3 +120,14 @@ class Registry:
                 for m in self._capabilities.values()
             ],
         }
+
+    # ── Event publishing ───────────────────────────────────────────
+
+    def _publish(self, event_type: str, payload: dict) -> None:
+        if not self._bus:
+            return
+        self._bus.publish(Event.new(
+            event_type=event_type,
+            payload=payload,
+            source={"module": "registry", "instance_id": ""},
+        ))

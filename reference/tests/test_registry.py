@@ -81,6 +81,68 @@ class TestRegistry:
         assert result.status == "completed"
         assert result.task_results["t1"].status == "completed"
 
+
+class TestRegistryEvents:
+    def test_register_publishes_event(self):
+        from agentos.backbone.bus import EventBus
+        bus = EventBus()
+        events = []
+        bus.subscribe("Registry:", lambda e: events.append(e.event_type))
+        r = Registry(bus=bus)
+        r.register("x", lambda t, c: None)
+        assert "Registry:CapabilityRegistered" in events
+
+
+class TestRegistryDeregister:
+    def test_deregister_removes(self):
+        r = Registry()
+        r.register("x", lambda t, c: None)
+        assert r.count == 1
+        r.deregister("x")
+        assert r.count == 0
+        assert r.resolve("x") is None
+
+    def test_deregister_nonexistent(self):
+        r = Registry()
+        r.deregister("missing")  # should not raise
+
+    def test_deregister_publishes_event(self):
+        from agentos.backbone.bus import EventBus
+        bus = EventBus()
+        events = []
+        bus.subscribe("Registry:", lambda e: events.append(e.event_type))
+        r = Registry(bus=bus)
+        r.register("x", lambda t, c: None)
+        r.deregister("x")
+        assert "Registry:CapabilityDeregistered" in events
+
+
+class TestRegistryTagIndex:
+    def test_find_by_tags(self):
+        r = Registry()
+        r.register("a", lambda t, c: None, tags=["research", "web"])
+        r.register("b", lambda t, c: None, tags=["research", "finance"])
+        r.register("c", lambda t, c: None, tags=["web"])
+        assert len(r.find_by_tags({"research"})) == 2
+        assert len(r.find_by_tags({"research", "web"})) == 1
+        assert r.find_by_tags({"research", "web"})[0].task_type == "a"
+
+    def test_find_by_tags_excludes_disabled(self):
+        r = Registry()
+        r.register("a", lambda t, c: None, tags=["research"])
+        from agentos.registry import CapabilityManifest
+        disabled = CapabilityManifest(task_type="b", tags=["research"], enabled=False, fn=lambda t, c: None)
+        r.register_manifest("b", disabled)
+        assert len(r.find_by_tags({"research"})) == 1
+
+    def test_find_by_domain(self):
+        r = Registry()
+        r.register("a", lambda t, c: None, tags=["research", "web"])
+        r.register("b", lambda t, c: None, tags=["research", "finance"])
+        assert len(r.find_by_domain("research")) == 2
+        assert len(r.find_by_domain("web")) == 1
+        assert len(r.find_by_domain("ai")) == 0
+
     def test_snapshot(self):
         r = Registry()
         r.load_builtins()
