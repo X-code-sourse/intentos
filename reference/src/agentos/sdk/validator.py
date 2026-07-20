@@ -5,9 +5,10 @@ from __future__ import annotations
 import inspect
 import re
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from ..registry import CapabilityManifest
+if TYPE_CHECKING:
+    from ..registry import CapabilityManifest
 
 _TASK_TYPE_RE = re.compile(r"^[a-z][a-z0-9-]{1,63}$")
 
