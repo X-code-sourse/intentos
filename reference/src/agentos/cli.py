@@ -29,6 +29,7 @@ from .reviewer import review as do_review
 
 from .sdk import scaffold, discover_capabilities, load_capability, validate_capability
 from .sdk.validator import describe_fn
+from .observability import TraceCollector
 
 
 # ── CLI ────────────────────────────────────────────────────────────
@@ -50,6 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--output", "-o", default=None, help="Write report to file")
     run_p.add_argument("--json", "-j", action="store_true", help="Output as JSON (RFC-0700)")
     run_p.add_argument("--verbose", "-v", action="store_true", help="Show detailed event log")
+    run_p.add_argument("--trace", action="store_true", help="Show execution trace (timeline, state chains, cost stats)")
 
     # list
     list_p = sub.add_parser("list", help="List available workflows")
@@ -249,6 +251,17 @@ def _cmd_run(args: argparse.Namespace) -> int:
     # ── Initialize system ──────────────────────────────────────────
     bus = EventBus()
 
+    # ── Trace collector (--trace) ─────────────────────────────────
+    trace = TraceCollector() if args.trace else None
+    if trace:
+        for prefix in (
+            "Task:", "Execution:", "plan.", "workflow.", "Review:", "Registry:",
+        ):
+            bus.subscribe(prefix, lambda e, _tc=trace: (
+                _tc.consume(e.event_type, e.payload, e.metadata.get("timestamp", "")),
+                True
+            )[1])
+
     if verbose:
         def log_event(e: Event) -> None:
             print(f"  [event] {e.type:30s} source={e.source}", file=sys.stderr)
@@ -369,6 +382,11 @@ def _cmd_run(args: argparse.Namespace) -> int:
         return 0
     else:
         print(report_md)
+
+    # ── Trace output (--trace) ────────────────────────────────────
+    if trace:
+        import sys as _sys
+        print(trace.render_all(), file=_sys.stderr)
 
     return 0 if verdict.passed else 1
 

@@ -19,6 +19,7 @@ mods = [
     "agentos.registry",
     "agentos.registry.manifest",
     "agentos.registry.workflows",
+    "agentos.observability",
 ]
 for name in mods:
     importlib.import_module(name)
