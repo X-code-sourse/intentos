@@ -52,6 +52,9 @@ jobs:
       - name: Import check
         run: python "${{ github.workspace }}/ci/check_imports.py"
 
+      - name: Pytest
+        run: pip install pytest && python -m pytest tests/ -v --tb=short
+
       - name: Constitution check
         run: python ../ci/check_constitution.py
 
