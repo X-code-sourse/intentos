@@ -15,82 +15,17 @@ import logging
 import sys
 from pathlib import Path
 from typing import Any
-
 from . import __version__
 from .backbone.bus import EventBus
-from .execution_engine import ExecutionEngine
-from .llm_executor import LlmConfig, call_llm
 from .backbone.event import Event
+from .capabilities import CAPABILITIES
+from .execution_engine import ExecutionEngine
+from .workflow_loader import discover_workflows, load as load_workflow, load_from_path
+
 from .models import Plan, PlannedTask
 from .planner import plan as do_plan
 from .reporter import format_report
 from .reviewer import review as do_review
-from .workflow_loader import discover_workflows, load as load_workflow, load_from_path
-
-# ── Built-in task executors ────────────────────────────────────────
-
-
-def _exec_search(task: PlannedTask, context: dict[str, Any]) -> str:
-    """Mock search executor — v1 returns placeholder text."""
-    query = task.params.get("query", "")
-    return f"【搜索结果】\n查询: {query}\n\n1. {query} 最新动态摘要\n2. {query} 行业分析\n3. 相关市场数据\n\n（注：v1 原型使用模拟数据，实际搜索 API 将在后续迭代接入）"
-
-
-def _exec_llm(task: PlannedTask, context: dict[str, Any]) -> str:
-    """LLM executor — calls real API via call_llm()."""
-    prompt = task.params.get("prompt", str(context))
-    system = task.params.get("system", "You are a helpful financial analyst.")
-    try:
-        return call_llm(prompt, system_prompt=system)
-    except (ConnectionError, ValueError) as e:
-        import logging
-        logging.warning("LLM API call failed, falling back to mock: %s", e)
-        return f"【LLM 分析结果 — API不可用，使用模拟数据】\n\n输入提示: {prompt[:100]}...\n\n## 投资亮点\n- 行业领先地位\n- 强劲的营收增长\n\n## 风险因素\n- 市场竞争加剧\n- 监管不确定性\n\n## 综合评估\n建议持续关注。（注：v1 模拟数据）"
-
-
-def _exec_review(task: PlannedTask, context: dict[str, Any]) -> dict:
-    """Review task — aggregates previous outputs into a structured result."""
-    checks = task.params.get("checks", ["non_empty"])
-    outputs = {k: v for k, v in context.items() if isinstance(v, str)}
-    return {
-        "checks": checks,
-        "non_empty_count": sum(1 for v in outputs.values() if v.strip()),
-        "text": "\n\n".join(outputs.values()),
-    }
-
-
-def _exec_report(task: PlannedTask, context: dict[str, Any]) -> str:
-    """Report task — compiles final output."""
-    sections = task.params.get("sections", [])
-    lines = []
-    for sec in sections:
-        title = sec.get("title", "")
-        content = sec.get("content", "")
-        resolved = _resolve_template(content, context)
-        if title:
-            lines.append(f"## {title}")
-        lines.append(resolved)
-        lines.append("")
-    return "\n".join(lines) if lines else "报告生成完成。"
-
-
-def _resolve_template(template: str, context: dict[str, Any]) -> str:
-    """Replace {key} placeholders with context values."""
-    import re
-
-    def replacer(m: re.Match) -> str:
-        key = m.group(1)
-        # Support dotted path like search_news.output
-        parts = key.replace(".output", "").split(".")
-        val = context
-        for p in parts:
-            if isinstance(val, dict):
-                val = val.get(p, "")
-            else:
-                return f"{{{key}}}"
-        return str(val) if val is not None else f"{{{key}}}"
-
-    return re.sub(r"\{(\w+(?:\.\w+)*)\}", replacer, template)
 
 
 # ── CLI ────────────────────────────────────────────────────────────
@@ -209,12 +144,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
     engine = ExecutionEngine(bus=bus)
 
-    # Register built-in executors via Capability Pool
-    engine.pool.register("search", _exec_search)
-    engine.pool.register("llm", _exec_llm)
-    engine.pool.register("gather", _exec_review)
-    engine.pool.register("review", _exec_review)
-    engine.pool.register("report", _exec_report)
+    # Register built-in executors from capabilities module
+    for tp, fn in CAPABILITIES.items():
+        engine.pool.register(tp, fn)
 
     # ── Load workflow ──────────────────────────────────────────────
     path = Path(wf_id)

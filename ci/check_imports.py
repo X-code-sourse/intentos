@@ -1,4 +1,7 @@
 """Verify all Python modules import without errors."""
+import importlib, sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "reference", "src"))
+
 mods = [
     "agentos.cli",
     "agentos.llm_executor",
@@ -8,9 +11,12 @@ mods = [
     "agentos.reporter",
     "agentos.workflow_loader",
     "agentos.models",
-    "agentos.event_bus",
+    "agentos.capabilities",
+    "agentos.capabilities.search",
+    "agentos.capabilities.llm",
+    "agentos.capabilities.review",
+    "agentos.capabilities.report",
 ]
-import importlib, sys
 for name in mods:
     importlib.import_module(name)
     print(f"  OK  {name}")
