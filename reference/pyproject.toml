@@ -1,0 +1,12 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentos"
+version = "0.1.0"
+description = "Agent OS reference implementation"
+requires-python = ">=3.11"
+dependencies = [
+    "rich>=13.0",
+]
