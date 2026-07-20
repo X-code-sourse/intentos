@@ -1,8 +1,3 @@
-# SEC Filing Rule Example
-
-This Rule constrains the financial analysis Task to use SEC filings.
-
-```yaml
 rule_id: rule://finance/sec-filing
 version: 1.2.0
 description: "Financial research must use SEC filings as the authoritative source"
@@ -52,4 +47,3 @@ governance:
     - version: "1.2.0"
       change: "Added minimum quarters as warning"
       date: "2026-06-01"
-```
