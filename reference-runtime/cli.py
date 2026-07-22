@@ -25,6 +25,8 @@ import commands.demo
 import commands.trace
 import commands.proxy
 import commands.doctor
+import commands.cost
+import commands.audit
 
 # All cmd_* functions are imported from command modules via the registry pattern below
 CMD_MAP = {
@@ -46,6 +48,8 @@ CMD_MAP = {
     "inspect": commands.trace.cmd_inspect,
     "proxy": commands.proxy.cmd_proxy,
     "doctor": commands.doctor.cmd_doctor,
+    "cost": commands.cost.cmd_cost,
+    "audit": commands.audit.cmd_audit,
 }
 
 def build_parser() -> argparse.ArgumentParser:
@@ -256,6 +260,30 @@ def build_parser() -> argparse.ArgumentParser:
     doctor_parser = subparsers.add_parser("doctor",
         help="Check your AI agent's health — see what happened, what went wrong, and how to fix it")
     doctor_parser.set_defaults(func=CMD_MAP["doctor"])
+
+    # cost
+    cost_parser = subparsers.add_parser("cost",
+        help="Show API cost breakdown by agent, model, and time period")
+    cost_parser.add_argument("--by", choices=["agent", "model"], default=None,
+                             help="Group costs by agent or model (default: both)")
+    cost_parser.add_argument("--days", type=int, default=30,
+                             help="Number of days to analyze (default: 30)")
+    cost_parser.set_defaults(func=CMD_MAP["cost"])
+
+    # audit
+    audit_parser = subparsers.add_parser("audit",
+        help="Generate compliance-ready audit reports")
+    audit_sub = audit_parser.add_subparsers(dest="audit_action", help="Audit actions")
+    ar = audit_sub.add_parser("report", help="Generate an audit report")
+    ar.add_argument("--format", choices=["csv", "html", "json"], default="csv",
+                    help="Output format (default: csv)")
+    ar.add_argument("--output", "-o", default=None,
+                    help="Output file path")
+    ar.add_argument("--days", type=int, default=90,
+                    help="Number of days to analyze (default: 90)")
+    ar.set_defaults(func=CMD_MAP["audit"])
+    # Default: just show summary
+    audit_parser.set_defaults(audit_action="summary", func=CMD_MAP["audit"])
 
     return parser
 
