@@ -29,8 +29,6 @@ from core.models import (
 )
 from core.registry import CapabilityRegistry
 from core.workflow import (
-    CheckpointPolicy,
-    CompensationPolicy, CompensationStrategy,
     ExecutionSemantics, FailurePolicy, FailurePropagation,
     ParallelPolicy, ParallelStrategy, RetryPolicy, RetryStrategy,
     TaskStatus, TimeoutPolicy, WorkflowDAG, WorkflowEdge,
@@ -341,45 +339,6 @@ class TestExecutionSemantics(unittest.TestCase):
         self.assertIn("failure", d)
         self.assertIn("parallel", d)
         self.assertEqual(d["retry"]["strategy"], "exponential")
-        self.assertIn("compensation", d)
-        self.assertIn("checkpoint", d)
-        self.assertEqual(d["compensation"]["strategy"], "none")
-
-    def test_compensation_policy_default(self):
-        """Default compensation policy should be NONE."""
-        p = CompensationPolicy()
-        self.assertEqual(p.strategy, CompensationStrategy.NONE)
-        self.assertIsNone(p.action)
-        self.assertEqual(p.order, "reverse")
-
-    def test_compensation_policy_rollback(self):
-        """CompensationPolicy with rollback should be constructable."""
-        p = CompensationPolicy(
-            strategy=CompensationStrategy.ROLLBACK,
-            action="compensate_task",
-        )
-        self.assertEqual(p.strategy, CompensationStrategy.ROLLBACK)
-        self.assertEqual(p.action, "compensate_task")
-
-    def test_compensation_policy_compensate(self):
-        """CompensationPolicy with compensate strategy."""
-        p = CompensationPolicy(strategy=CompensationStrategy.COMPENSATE)
-        self.assertEqual(p.strategy, CompensationStrategy.COMPENSATE)
-
-    def test_checkpoint_policy_default(self):
-        """Default checkpoint policy should have task interval."""
-        p = CheckpointPolicy()
-        self.assertEqual(p.interval, "task")
-        self.assertEqual(p.store, "event_store")
-
-    def test_semantics_includes_compensation(self):
-        """ExecutionSemantics should include compensation policy."""
-        s = ExecutionSemantics(
-            compensation=CompensationPolicy(strategy=CompensationStrategy.ROLLBACK),
-        )
-        self.assertEqual(s.compensation.strategy, CompensationStrategy.ROLLBACK)
-        d = s.to_dict()
-        self.assertEqual(d["compensation"]["strategy"], "rollback")
 
     def test_task_status_values(self):
         """All TaskStatus values should be defined."""

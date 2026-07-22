@@ -1,1 +1,1 @@
-"""Agent OS Reference Runtime — Core engine."""
+"""Intent OS — Core Engine."""

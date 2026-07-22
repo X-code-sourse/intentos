@@ -76,14 +76,12 @@ class Scheduler:
         self._status: WorkflowStatus = WorkflowStatus.PENDING
         self._failed_tasks: int = 0
         self._completed_tasks: int = 0
-        self._completed_order: list[str] = []  # Task IDs in completion order (for compensation)
         self._running_tasks: dict[str, threading.Thread] = {}
         self._task_outputs: dict[str, Any] = {}
         self._task_errors: dict[str, str] = {}
         self._task_attempts: dict[str, int] = {}
+        self._completed_order: list[str] = []
         self._compensation_events: list[dict[str, Any]] = []
-
-        # Optional capability registry (set externally)
         self._registry: Any = None
 
         # Callbacks
@@ -107,11 +105,9 @@ class Scheduler:
         self._on_workflow_complete = on_workflow_complete
 
     def set_registry(self, registry: Any) -> None:
-        """Set the Capability Registry for resolving task capability references."""
         self._registry = registry
 
     def set_executor(self, executor: Executor) -> None:
-        """Replace the executor (for switching between simulated and real)."""
         self._executor = executor
 
     def execute(
@@ -168,7 +164,7 @@ class Scheduler:
         final_status = self._compute_final_status()
         self._status = final_status
 
-        # Trigger compensation if workflow failed and compensation is configured
+        # Trigger compensation if workflow failed
         if final_status in (WorkflowStatus.FAILED, WorkflowStatus.PARTIAL):
             self._execute_compensation()
 
@@ -520,51 +516,25 @@ class Scheduler:
         return self._status == WorkflowStatus.FAILED
 
     def _execute_compensation(self) -> None:
-        """Execute compensation actions when workflow fails.
-
-        Behavior depends on CompensationStrategy:
-          - rollback: Mark completed tasks as CANCELLED in reverse order
-          - compensate: Not yet implemented (requires capability lookup)
-          - none: No action
-        """
         strategy = self._semantics.compensation.strategy
         if strategy == CompensationStrategy.NONE:
             return
-
         if strategy == CompensationStrategy.ROLLBACK:
-            compensation_order = list(self._completed_order)
+            order = list(self._completed_order)
             if self._semantics.compensation.order == "reverse":
-                compensation_order.reverse()
-
+                order.reverse()
             rec = self._recorder
-            for task_id in compensation_order:
+            for task_id in order:
                 task = self._dag.get_task(task_id)
                 if task.status == TaskStatus.SUCCEEDED:
                     task.status = TaskStatus.CANCELLED
-                    rec.record(
-                        event_type=EventType.TASK_CANCELLED,
-                        source="scheduler",
-                        task_id=task_id,
-                        capability=task.capability,
-                        payload={
-                            "reason": "compensation_rollback",
-                            "compensation_strategy": "rollback",
-                        },
-                    )
-
+                    rec.record(event_type=EventType.TASK_CANCELLED, source="scheduler",
+                               task_id=task_id, capability=task.capability,
+                               payload={"reason": "compensation_rollback"})
         elif strategy == CompensationStrategy.COMPENSATE:
-            # Phase 2+: Execute compensation capability for each completed task
-            # Requires capability lookup and executor invocation
             rec = self._recorder
-            rec.record(
-                event_type=EventType.TASK_CANCELLED,
-                source="scheduler",
-                task_id="_workflow",
-                payload={
-                    "reason": "compensation_not_implemented",
-                    "compensation_strategy": "compensate",
-                },
-            )
+            rec.record(event_type=EventType.TASK_CANCELLED, source="scheduler", task_id="_workflow",
+                       payload={"reason": "compensation_not_implemented", "strategy": "compensate"})
 
     def _compute_final_status(self) -> WorkflowStatus:
         """Compute the final workflow status based on task outcomes."""

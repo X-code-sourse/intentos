@@ -81,9 +81,9 @@ class TaskInitMode(Enum):
 
 class CompensationStrategy(Enum):
     """How compensation actions are triggered on fatal failure."""
-    ROLLBACK = "rollback"       # Reverse-execute completed tasks in opposite order
-    COMPENSATE = "compensate"   # Execute compensation capabilities for each task
-    NONE = "none"               # No compensation
+    ROLLBACK = "rollback"
+    COMPENSATE = "compensate"
+    NONE = "none"
 
 
 # ──────────────────────────────────────────────
@@ -138,31 +138,19 @@ class LifecyclePolicy:
 
 @dataclass
 class CompensationPolicy:
-    """How compensation is handled when a task reaches FAILED_FATAL.
-
-    SPEC-0002 Section 4.7 — Compensation defines what happens to already-
-    completed tasks when a downstream task fails fatally.
-
-    - rollback: Mark completed tasks as CANCELLED in reverse execution order
-    - compensate: Execute a compensation capability for each completed task
-    - none: Leave completed tasks as-is
-    """
+    """How compensation is handled when a task reaches FAILED_FATAL."""
     strategy: CompensationStrategy = CompensationStrategy.NONE
-    action: str | None = None          # Capability reference for compensation
-    order: str = "reverse"             # forward | reverse
+    action: str | None = None
+    order: str = "reverse"
     max_compensation_attempts: int = 1
 
 
 @dataclass
 class CheckpointPolicy:
-    """How checkpoints are created during workflow execution (Phase 2+).
-
-    SPEC-0002 Section 4.8 — Checkpoints allow long-running workflows to
-    persist state and resume from failures.
-    """
-    interval: str = "task"             # task | step | never
-    store: str = "event_store"         # event_store | persistent_volume
-    resume: str = "auto"               # auto | manual
+    """How checkpoints are created during workflow execution (Phase 2+)."""
+    interval: str = "task"
+    store: str = "event_store"
+    resume: str = "auto"
 
 
 @dataclass
@@ -216,7 +204,6 @@ class ExecutionSemantics:
                 "strategy": self.compensation.strategy.value,
                 "action": self.compensation.action,
                 "order": self.compensation.order,
-                "max_compensation_attempts": self.compensation.max_compensation_attempts,
             },
             "checkpoint": {
                 "interval": self.checkpoint.interval,
