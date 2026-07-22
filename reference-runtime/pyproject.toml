@@ -45,8 +45,12 @@ intent-os = "cli:main"
 [tool.setuptools]
 py-modules = ["cli", "mcp_server"]
 
+[tool.setuptools.package-data]
+commands = ["*.yaml"]
+examples = ["*.yaml"]
+
 [tool.setuptools.packages.find]
-include = ["core*", "adapters*", "tools*", "commands*"]
+include = ["core*", "adapters*", "tools*", "commands*", "examples*"]
 exclude = ["tests*"]
 
 [tool.pytest.ini_options]
