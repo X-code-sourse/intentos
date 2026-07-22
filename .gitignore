@@ -14,3 +14,6 @@ build/
 *.db
 .vscode/
 .idea/
+
+# AI session context — not for public repo
+CLAUDE.md
