@@ -160,11 +160,11 @@ intent-os/
 |   +-- translate.yaml              # Translation capability
 |
 +-- reference-runtime/
-|   +-- cli.py                      # CLI entry point (14 commands, 191 lines)
+|   +-- cli.py                      # CLI entry point (16 commands, 191 lines)
 |   +-- mcp_server.py               # MCP Server implementation (SSE transport)
 |   +-- setup.py / pyproject.toml   # Package configuration
 |   |
-|   +-- commands/                   # CLI command implementations (15 files)
+|   +-- commands/                   # CLI command implementations (17 files)
 |   |   +-- helpers.py              # Shared utilities
 |   |   +-- validate.py / run.py / compare.py / list.py
 |   |   +-- registry.py / event.py / analytics.py
@@ -216,7 +216,7 @@ intent-os/
 |   |
 |   +-- tests/                      # 17 test files, 560 tests
 |       +-- test_adapters.py               (45)  # Adapter schema translation
-|       +-- test_cli_commands.py           (37)  # All 14 CLI commands
+|       +-- test_cli_commands.py           (37)  # All 16 CLI commands
 |       +-- test_executor.py               (41)  # Execution engine
 |       +-- test_event_store.py            (35)  # SQLite event store
 |       +-- test_import_export.py          (26)  # Format conversion round-trips
@@ -267,7 +267,7 @@ The reference runtime implements:
 | `test_cross_runtime.py` | 42 | L1-L4 compatibility |
 | `test_workflow.py` | 39 | DAG + planner + scheduler |
 | `test_event_store.py` | 35 | SQLite event store |
-| `test_cli_commands.py` | 37 | All 14 CLI commands |
+| `test_cli_commands.py` | 37 | All 16 CLI commands |
 | `test_registry_persistence.py` | 29 | Registry + search |
 | `test_workflow_integration.py` | 28 | End-to-end workflows |
 | `test_search.py` | 27 | TF-IDF search |
