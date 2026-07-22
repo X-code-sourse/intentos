@@ -139,14 +139,44 @@ class TestRunCommand(CLITestBase):
                 input_file=None,
                 output=None,
                 save=None,
+                param=None,
+                text=None,
             )
             return self.run_command(cmd_run, args)
 
     def test_run_no_adapters(self):
-        """Run with no adapters loaded should exit with error."""
-        out, err, code = self._run_with_mocks([])
-        assert code == 1
-        assert "No runtime adapters available" in err
+        """Run with no adapters loaded should fall back to simulated adapter."""
+        from commands.run import cmd_run
+        from core.executor import Executor
+        from core.workflow_runner import SimulatedAdapter
+
+        # Use a real executor (not a mock) so the SimulatedAdapter fallback works
+        real_executor = Executor()
+        real_executor.register_adapter("simulated", SimulatedAdapter())
+
+        with patch("commands.run.load_manifest") as mock_load, \
+             patch("commands.run.setup_executor") as mock_setup:
+            mock_manifest = MagicMock()
+            mock_manifest.id = "test@1.0.0"
+            mock_manifest.name = "test"
+            mock_manifest.version = "1.0.0"
+            mock_manifest.output_schema = {}
+            mock_load.return_value = (mock_manifest, MagicMock())
+            mock_setup.return_value = real_executor
+
+            args = self.make_args(
+                manifest="test.yaml",
+                adapter=None,
+                input='{"text": "hello"}',
+                input_file=None,
+                output=None,
+                save=None,
+                param=None,
+                text=None,
+            )
+            out, err, code = self.run_command(cmd_run, args)
+            assert code == 0, f"err={err}"
+            assert "simulated" in out.lower() or "execution result" in out.lower()
 
     def test_run_adapter_not_found(self):
         """Requesting an unknown adapter should exit with error."""
@@ -171,6 +201,8 @@ class TestRunCommand(CLITestBase):
                 input_file=None,
                 output=None,
                 save=None,
+                param=None,
+                text=None,
             )
             out, err, code = self.run_command(cmd_run, args)
             assert code == 1

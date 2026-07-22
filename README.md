@@ -2,34 +2,43 @@
 
 > **An open interoperability layer for AI capabilities, workflows, and execution.**
 
-Intent OS defines a common model for describing, composing, and executing AI capabilities across different runtimes. It is not a model, not a framework, not a platform -- it is an **interoperability layer** that lets AI capabilities move freely between OpenAI, Anthropic, Ollama, OpenRouter, and any future runtime. One manifest, one workflow definition, any runtime.
+[![Docs](https://img.shields.io/badge/docs-intent--os.org-blue?style=flat)](https://intent-os.org)
+[![Tests](https://img.shields.io/badge/tests-689%20passing-brightgreen?style=flat)]()
+[![Version](https://img.shields.io/badge/version-0.4.0-blue?style=flat)]()
+
+Intent OS defines a common model for describing, composing, and executing AI capabilities across different runtimes. It is not a model, not a framework, not a platform — it is an **interoperability layer** that lets AI capabilities move freely between OpenAI, Anthropic, Ollama, OpenRouter, and any future runtime. One manifest, one workflow definition, any runtime.
 
 ```bash
 pip install "intent-os[all]"
 ```
+
+**[📖 Documentation →](https://intent-os.org)**
 
 ---
 
 ## 30-Second Demo
 
 ```bash
-# Clone the repo
-git clone https://github.com/X-code-sourse/intentos.git
-cd intentos
+# Install
+pip install intent-os
 
 # Validate a Capability Manifest
-intent-os validate examples/hello-world/hello_world.yaml
+intent-os validate examples/translate.yaml
 
-# Execute the same capability on a local runtime (no API key required)
-intent-os run examples/hello-world/hello_world.yaml --adapter ollama \
-  --input '{"name": "Intent OS"}'
+# Execute a capability by name (inline parameters)
+intent-os run translate "Hello world" -p target_lang=zh
+
+# Run on any adapter — only the --adapter flag changes
+intent-os run translate --adapter openai "Hello world" -p target_lang=zh
 
 # Compare execution across all available runtimes
-intent-os compare examples/hello-world/hello_world.yaml \
-  --input '{"name": "Intent OS"}'
+intent-os compare examples/translate.yaml --input '{"text":"Hello","target_lang":"fr"}'
+
+# Natural language (requires Ollama or API key)
+intent-os ask "translate 'good morning' to Japanese"
 ```
 
-No API key required when using the Ollama adapter (local inference). The same `.yaml` file runs on OpenAI, Anthropic, or any other adapter -- only the `--adapter` flag changes.
+No API key required when using the Ollama adapter (local inference). The same `.yaml` file runs on OpenAI, Anthropic, or any other adapter — only the `--adapter` flag changes.
 
 ---
 
@@ -240,7 +249,7 @@ intent-os/
 
 ## Status
 
-**Version:** v0.3.0 -- Phase 2: AI Execution Graph
+**Version:** v0.4.0 — Phase 2: AI Execution Graph
 
 The reference runtime implements:
 

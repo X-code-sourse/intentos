@@ -48,7 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Intent OS Reference Runtime - Open AI Capability Interoperability",
         epilog="Phase 0 - Prove that one Manifest can run on multiple runtimes.",
     )
-    parser.add_argument("--version", action="version", version="intent-os 0.3.0")
+    parser.add_argument("--version", action="version", version="intent-os 0.4.0")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -59,10 +59,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     # run
     run_parser = subparsers.add_parser("run", help="Execute a capability on a runtime")
-    run_parser.add_argument("manifest", help="Path to Capability Manifest YAML file")
+    run_parser.add_argument("manifest", help="Path to .yaml manifest or built-in capability name (e.g. 'translate')")
+    run_parser.add_argument("text", nargs="?", default=None,
+                            help="Inline text input (maps to the manifest's 'text' field)")
     run_parser.add_argument("--adapter", "-a", default=None, help="Runtime adapter (openai, anthropic, ollama)")
     run_parser.add_argument("--input", "-i", default=None, help="Input JSON string")
     run_parser.add_argument("--input-file", "-f", default=None, help="Input JSON file")
+    run_parser.add_argument("--param", "-p", action="append", default=None,
+                            help="Input parameter as key=value (can be repeated, e.g. -p target_lang=zh)")
     run_parser.add_argument("--output", "-o", default=None, help="Save execution record to file")
     run_parser.add_argument("--save", "-s", default=None, help="Save execution record path")
     run_parser.set_defaults(func=CMD_MAP["run"])
@@ -214,6 +218,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     # demo
     demo_parser = subparsers.add_parser("demo", help="Run an interactive terminal demo")
+    demo_parser.add_argument("--auto", action="store_true",
+                             help="Run non-interactively (skip all pauses)")
     demo_parser.set_defaults(func=CMD_MAP["demo"])
 
     return parser

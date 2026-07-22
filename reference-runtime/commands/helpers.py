@@ -51,6 +51,75 @@ def load_manifest(path_str: str) -> tuple[Any, Any]:
     return manifest, validation
 
 
+# -- Built-in manifest resolution ------------------------------------------
+
+BUILTIN_MANIFEST_DIRS: list[Path] = [
+    Path(__file__).parent.parent / "examples",      # reference-runtime/examples/
+    Path(__file__).parent.parent.parent / "examples",  # project-root/examples/
+]
+
+
+def find_builtin_manifest(name: str) -> Path | None:
+    """Resolve a capability *name* (without ``.yaml`` extension) to a
+    built-in manifest file path on disk.
+
+    Searches ``BUILTIN_MANIFEST_DIRS`` in order.  Returns ``None``
+    when no file matches.
+    """
+    for base in BUILTIN_MANIFEST_DIRS:
+        for suffix in (".yaml", ".yml"):
+            candidate = base / f"{name}{suffix}"
+            if candidate.exists():
+                return candidate
+    return None
+
+
+def list_builtin_capabilities() -> list[dict[str, str]]:
+    """Return a list of ``{name, description}`` dicts for every built-in
+    manifest found on disk.  Deduplicates by name (first directory wins)."""
+    seen: set[str] = set()
+    results: list[dict[str, str]] = []
+    for base_dir in BUILTIN_MANIFEST_DIRS:
+        if not base_dir.is_dir():
+            continue
+        for yaml_file in sorted(base_dir.glob("*.yaml")):
+            name = yaml_file.stem
+            if name in seen:
+                continue
+            seen.add(name)
+            import yaml
+            try:
+                with open(yaml_file, encoding="utf-8") as f:
+                    data = yaml.safe_load(f)
+                meta = data.get("metadata", {})
+                results.append({
+                    "name": meta.get("name", name),
+                    "description": meta.get("description", ""),
+                })
+            except Exception:
+                results.append({"name": name, "description": ""})
+    return results
+
+
+def _adapter_has_credentials(name: str) -> bool:
+    """Return ``True`` when the API-keys / local server needed by *name* appear to be present.
+
+    This prevents cloud-only adapters from being registered when the user
+    hasn't set the corresponding environment variable, which would otherwise
+    cause silent failures or force the user to always pass ``--adapter ollama``.
+    """
+    checks = {
+        "openai":         "OPENAI_API_KEY",
+        "anthropic":      "ANTHROPIC_API_KEY",
+        "openrouter":     "OPENROUTER_API_KEY",
+        "github-models":  "GITHUB_TOKEN",
+    }
+    env_var = checks.get(name)
+    if env_var is None:
+        return True       # local adapters (ollama, simulated) — no key needed
+    return bool(os.environ.get(env_var))
+
+
 def setup_executor(adapters: list[str] | None = None) -> Executor:
     """Create an executor with the requested adapters loaded."""
     executor = Executor()
@@ -60,31 +129,34 @@ def setup_executor(adapters: list[str] | None = None) -> Executor:
 
     try:
         from adapters.openai_adapter import OpenAIAdapter
-        adapter_classes.append(OpenAIAdapter)
+        adapter_classes.append(("openai", OpenAIAdapter))
     except ImportError:
         pass
     try:
         from adapters.anthropic_adapter import AnthropicAdapter
-        adapter_classes.append(AnthropicAdapter)
+        adapter_classes.append(("anthropic", AnthropicAdapter))
     except ImportError:
         pass
     try:
         from adapters.github_models_adapter import GitHubModelsAdapter
-        adapter_classes.append(GitHubModelsAdapter)
+        adapter_classes.append(("github-models", GitHubModelsAdapter))
     except ImportError:
         pass
     try:
         from adapters.openrouter_adapter import OpenRouterAdapter
-        adapter_classes.append(OpenRouterAdapter)
+        adapter_classes.append(("openrouter", OpenRouterAdapter))
     except ImportError:
         pass
     try:
         from adapters.ollama_adapter import OllamaAdapter
-        adapter_classes.append(OllamaAdapter)
+        adapter_classes.append(("ollama", OllamaAdapter))
     except ImportError:
         pass
 
-    for adapter_cls in adapter_classes:
+    for name, adapter_cls in adapter_classes:
+        # Skip cloud adapters whose credentials aren't set
+        if not _adapter_has_credentials(name):
+            continue
         try:
             adapter = adapter_cls()
             if adapter.name == "ollama":

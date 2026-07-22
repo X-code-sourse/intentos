@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from commands.helpers import get_registry_store, setup_executor
+from commands.helpers import find_builtin_manifest, BUILTIN_MANIFEST_DIRS
 
 _project_root = Path(__file__).parent.parent
 if str(_project_root) not in sys.path:
@@ -63,10 +64,97 @@ def _detect_adapter_switch(text: str) -> str | None:
     return None
 
 
+# ---------------------------------------------------------------------------
+# "No LLM" degraded mode — help text shown when no provider is available
+# ---------------------------------------------------------------------------
+
+_NO_LLM_HELP = """\
+[i] No LLM provider is available on this machine.
+    Ask needs an LLM (local Ollama, OpenAI, or Anthropic) to understand
+    natural-language requests and generate capability manifests.
+
+    In the meantime you can use ``intent-os run`` directly:
+
+{builtins}\
+"""
+
+
+def _list_builtin_capabilities() -> list[dict[str, Any]]:
+    """Scan built-in manifest directories and return a list of capability
+    descriptors (name + description) found there."""
+    import yaml as _yaml
+
+    results: list[dict[str, Any]] = []
+    for base_dir in BUILTIN_MANIFEST_DIRS:
+        if not base_dir.is_dir():
+            continue
+        for yaml_file in sorted(base_dir.glob("*.yaml")):
+            try:
+                with open(yaml_file, encoding="utf-8") as f:
+                    data = _yaml.safe_load(f)
+                meta = data.get("metadata", {})
+                spec = data.get("spec", {})
+                results.append({
+                    "name": meta.get("name", yaml_file.stem),
+                    "description": meta.get("description", ""),
+                    "input_fields": list(spec.get("input", {}).keys()),
+                })
+            except Exception:
+                results.append({
+                    "name": yaml_file.stem,
+                    "description": "",
+                    "input_fields": [],
+                })
+    # Deduplicate by name (first encounter wins)
+    seen: set[str] = set()
+    deduped: list[dict[str, Any]] = []
+    for cap in results:
+        if cap["name"] not in seen:
+            seen.add(cap["name"])
+            deduped.append(cap)
+    return deduped
+
+
+def _show_no_llm_guide() -> None:
+    """Print the degraded-mode guide showing what the user *can* do without
+    an LLM provider, then exit."""
+    builtins = _list_builtin_capabilities()
+
+    builtin_lines: list[str] = []
+    for cap in builtins:
+        inputs = " ".join(f"-p {f}=..." for f in cap["input_fields"][:3])
+        if cap["description"]:
+            builtin_lines.append(f"    intent-os run {cap['name']} {inputs}")
+            builtin_lines.append(f"      # {cap['description']}")
+        else:
+            builtin_lines.append(f"    intent-os run {cap['name']} {inputs}")
+
+    builtin_text = "\n".join(builtin_lines)
+
+    print()
+    print(_NO_LLM_HELP.format(builtins=builtin_text))
+    print()
+    print("  Quick start with Ollama (free, local, no API key):")
+    print("    https://ollama.com/download")
+    print("    ollama pull llama3.2:latest")
+    print("    ollama serve")
+    print()
+    print("  Or set an API key:")
+    print("    export OPENAI_API_KEY=sk-...")
+    print("    export ANTHROPIC_API_KEY=sk-ant-...")
+    print()
+    sys.exit(0)
+
+
+# ---------------------------------------------------------------------------
+# Display helpers
+# ---------------------------------------------------------------------------
+
+
 def _print_execution_details(record: dict[str, Any] | None) -> None:
     """Print execution details from a result record dict.
 
-    Handles both the flat key format (``runtime_id``, ``total_latency_ms`` …)
+    Handles both the flat key format (``runtime_id``, ``total_latency_ms`` ...)
     used by the original single-query output, and the nested format produced
     by :meth:`ExecutionRecord.to_dict`.
     """
@@ -158,6 +246,11 @@ def _display_result(result: Any, session: Any = None) -> bool:
     _print_execution_details(result.record)
 
     return result.success
+
+
+# ---------------------------------------------------------------------------
+# Interactive REPL
+# ---------------------------------------------------------------------------
 
 
 def _interactive_mode(
@@ -277,6 +370,9 @@ def cmd_ask(args: Any) -> None:
 
     * **Without a query** (``intent-os ask``) — interactive multi-turn REPL.
       See :func:`_interactive_mode` for details.
+
+    When **no LLM provider** is available, both modes show a degraded-mode
+    guide listing the built-in capabilities and exit gracefully.
     """
     # -- resolve the query string -------------------------------------------
     query = args.query
@@ -284,7 +380,6 @@ def cmd_ask(args: Any) -> None:
     if not query or not query.strip():
         # -- interactive REPL mode ------------------------------------------
         from core.llm_provider import ProviderFactory
-        from core.ask import AskSession
 
         print("Intent OS — Ask")
         print()
@@ -301,19 +396,9 @@ def cmd_ask(args: Any) -> None:
 
         try:
             provider = ProviderFactory.create("auto")
-        except RuntimeError as exc:
-            print(f"  Error: {exc}", file=sys.stderr)
-            print()
-            print("  Install Ollama (free, local, no API key):")
-            print("    https://ollama.com/download")
-            print("    ollama pull llama3.2:1b")
-            print("    ollama serve")
-            print()
-            print("  Or set an API key:")
-            print("    export OPENAI_API_KEY=sk-...")
-            print("    export ANTHROPIC_API_KEY=sk-ant-...")
-            print()
-            sys.exit(1)
+        except RuntimeError:
+            _show_no_llm_guide()
+            return  # unreachable
 
         print(f"  Using provider: {provider.name} (model: {provider.model})")
 
@@ -356,19 +441,9 @@ def cmd_ask(args: Any) -> None:
 
     try:
         provider = ProviderFactory.create("auto")
-    except RuntimeError as exc:
-        print(f"  Error: {exc}", file=sys.stderr)
-        print()
-        print("  Install Ollama (free, local, no API key):")
-        print("    https://ollama.com/download")
-        print("    ollama pull llama3.2:1b")
-        print("    ollama serve")
-        print()
-        print("  Or set an API key:")
-        print("    export OPENAI_API_KEY=sk-...")
-        print("    export ANTHROPIC_API_KEY=sk-ant-...")
-        print()
-        sys.exit(1)
+    except RuntimeError:
+        _show_no_llm_guide()
+        return  # unreachable
 
     print(f"  Using provider: {provider.name} (model: {provider.model})")
 

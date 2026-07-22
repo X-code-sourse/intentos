@@ -106,7 +106,7 @@ class OllamaProvider(LLMProvider):
 
     def __init__(
         self,
-        model: str = "llama3.2:1b",
+        model: str = "llama3.2:latest",
         base_url: str = "http://localhost:11434",
         **kwargs: Any,
     ) -> None:
@@ -410,10 +410,13 @@ class AutoProvider(LLMProvider):
         3. **Anthropic** — if ``ANTHROPIC_API_KEY`` is set.
     """
 
-    name = "auto"
-
     def __init__(self, **kwargs: Any) -> None:
         self._delegate = self._select(**kwargs)
+
+    @property
+    def name(self) -> str:
+        """Delegate to the selected provider's name."""
+        return self._delegate.name  # type: ignore[union-attr]
 
     @property
     def model(self) -> str:

@@ -1,145 +1,115 @@
-# Intent OS — 5-Minute Quickstart
+# Quickstart
 
-Get started with Intent OS in 5 minutes. No API key required — we'll use Ollama for local inference.
+Get Intent OS running in 60 seconds.
 
-## Prerequisites
-
-- Python 3.10+
-- [Ollama](https://ollama.com) (for local execution without API keys)
-
-## Step 1: Install Intent OS
+## 1. Install
 
 ```bash
-# Install the CLI and core runtime
 pip install intent-os
-
-# Or install with all extras (OpenAI + Anthropic adapters)
-pip install "intent-os[all]"
-
-# Install from source
-git clone https://github.com/X-code-sourse/intentos.git
-cd intent-os/reference-runtime
-pip install -e .
 ```
 
-## Step 2: Start Ollama
+Or install with support for a specific AI provider:
 
 ```bash
-ollama pull llama3.2:1b
-ollama serve
+pip install "intent-os[openai]"    # OpenAI support
+pip install "intent-os[anthropic]" # Anthropic support
+pip install "intent-os[all]"       # All providers
 ```
 
-Keep the Ollama server running in a terminal window.
-
-## Step 3: Write your first Manifest
-
-Create a file called `hello.yaml`:
-
-```yaml
-kind: Capability
-metadata:
-  name: hello_world
-  version: 1.0.0
-  publisher: intent-os.org
-  description: "Greet someone"
-
-spec:
-  input:
-    name:
-      type: string
-      description: "The name to greet"
-      default: "World"
-
-  output:
-    greeting:
-      type: string
-      description: "The generated greeting"
-
-  security:
-    risk: low
-    network: false
-```
-
-## Step 4: Validate
+Verify the installation:
 
 ```bash
-intent-os validate hello.yaml
+intent-os --version
+# intent-os 0.4.0
 ```
 
-Expected output:
+## 2. Validate a Manifest
+
+Manifests are YAML files that describe AI capabilities. Try validating one of the built-in examples:
+
+```bash
+intent-os validate examples/translate.yaml
 ```
-[OK] Manifest 'hello_world@1.0.0' loaded successfully
+
+You should see:
+
+```
+[OK] Manifest 'translate@1.2.0' loaded successfully
+Manifest: translate@1.2.0
+Input fields: ['text', 'source_lang', 'target_lang']
+Output fields: ['translated_text', 'detected_language', 'confidence']
+Security risk: low
 [OK] Manifest is valid
 ```
 
-## Step 5: Execute locally (Ollama)
+## 3. Run a Capability
+
+### With Ollama (free, local)
+
+If you have [Ollama](https://ollama.com) installed and running:
 
 ```bash
-intent-os run hello.yaml --adapter ollama --input '{"name": "Intent OS"}'
+ollama pull llama3.2:latest
+ollama serve
+
+# In another terminal:
+intent-os run translate -p text="Hello world" -p target_lang=zh
 ```
 
-You'll see the ExecutionRecord with latency, cost, and output.
+### With a cloud provider
 
-## Step 6: Execute on OpenAI (if you have an API key)
+Set your API key:
 
 ```bash
-export OPENAI_API_KEY="sk-..."
-intent-os run hello.yaml --adapter openai --input '{"name": "Intent OS"}'
+export OPENAI_API_KEY=sk-...
+# or
+export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-## Step 7: Cross-runtime comparison
+Then run:
 
 ```bash
-intent-os compare hello.yaml --input '{"name": "Intent OS"}'
+intent-os run translate --adapter openai -p text="Hello world" -p target_lang=zh
 ```
 
-This executes the same Manifest on all available runtimes and compares the ExecutionRecords.
+### Without any API key (simulated)
 
-## Step 8: Import an existing tool
+No Ollama, no API key? The runtime automatically falls back to a simulated adapter:
 
 ```bash
-cat > my_tool.json << 'EOF'
-{
-  "name": "search_web",
-  "description": "Search the web",
-  "parameters": {
-    "type": "object",
-    "properties": {
-      "query": {"type": "string"}
-    },
-    "required": ["query"]
-  }
-}
-EOF
-
-intent-os import openai-function my_tool.json
+intent-os run translate -p text="Hello world" -p target_lang=zh
+# Adapters loaded: simulated (no real runtime available)
 ```
 
-This converts your OpenAI function to an Intent OS Manifest and registers it.
+## 4. Use Natural Language
 
-## Step 9: Plan and run a workflow
+With Ollama or an API key configured:
 
 ```bash
-# Plan from a goal
-intent-os workflow plan "research AI trends"
-
-# Run a predefined workflow
-intent-os workflow run examples/research_workflow.yaml \
-  --input '{"company": "NVIDIA", "ticker": "NVDA"}'
+intent-os ask "translate 'good morning' to Japanese"
 ```
 
-## Next Steps
+Or enter interactive mode:
 
-- [Architecture Overview](../README.md)
-- [Specification: Capability Manifest](../specs/SPEC-0001-capability-manifest.md)
-- [Examples](../examples/)
+```bash
+intent-os ask
+> translate this text to French
+> 用 OpenAI 重跑           # switch adapter mid-conversation
+> exit
+```
 
-## Troubleshooting
+## 5. See What's Available
 
-| Problem | Solution |
-|---|---|
-| `No adapters loaded` | Install Ollama and run `ollama serve` |
-| `Ollama connection refused` | Run `ollama serve` in a separate terminal |
-| `No module named 'openai'` | `pip install intent-os[all]` or `pip install openai` |
-| `429: quota exceeded` | Your OpenAI account needs billing set up |
-| `402: credits required` | Add credits to your OpenRouter account |
+```bash
+intent-os list
+intent-os registry search "code"
+intent-os demo --auto
+```
+
+---
+
+## What's Next?
+
+- [Learn how to write your own Manifest](guide/manifest.md)
+- [Explore all 16 CLI commands](cli/commands.md)
+- [Browse built-in examples](https://github.com/X-code-sourse/intentos/tree/main/examples)

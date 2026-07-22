@@ -169,7 +169,13 @@ _DEMO_STEPS = [
 
 
 def cmd_demo(args: Any) -> None:
-    """Run an interactive terminal demo of Intent OS capabilities."""
+    """Run an interactive terminal demo of Intent OS capabilities.
+
+    When ``--auto`` is passed, the demo runs end-to-end without waiting
+    for any interactive input — suitable for CI or quick previews.
+    """
+    auto = getattr(args, "auto", False)
+
     print()
     print("  ╔══════════════════════════════════════════════════════╗")
     print("  ║            Intent OS — Interactive Demo              ║")
@@ -180,8 +186,12 @@ def cmd_demo(args: Any) -> None:
     _print_slow("  or external services required. All output is simulated")
     _print_slow("  but accurately reflects real command behavior.")
     print()
-    _print_slow("  Press Enter to start...")
-    input()
+    if not auto:
+        _print_slow("  Press Enter to start...")
+        input()
+    else:
+        _print_slow("  Starting demo (auto mode)...")
+        time.sleep(0.5)
 
     for step in _DEMO_STEPS:
         _section(step["title"])
@@ -208,8 +218,12 @@ def cmd_demo(args: Any) -> None:
 
         print()
         if step != _DEMO_STEPS[-1]:
-            _print_slow("  Press Enter to continue...")
-            input()
+            if not auto:
+                _print_slow("  Press Enter to continue...")
+                input()
+            else:
+                _print_slow("  Continuing...")
+                time.sleep(0.3)
 
     # Closing
     print()
