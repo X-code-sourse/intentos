@@ -19,6 +19,7 @@ import commands.import_cmd
 import commands.export
 import commands.quickstart
 import commands.evolution
+import commands.ask
 
 # All cmd_* functions are imported from command modules via the registry pattern below
 CMD_MAP = {
@@ -35,6 +36,7 @@ CMD_MAP = {
     "export": commands.export.cmd_export,
     "quickstart": commands.quickstart.cmd_quickstart,
     "evolution": commands.evolution.cmd_evolution,
+    "ask": commands.ask.cmd_ask,
 }
 
 def build_parser() -> argparse.ArgumentParser:
@@ -201,6 +203,12 @@ def build_parser() -> argparse.ArgumentParser:
     ev_reject = evolution_sub.add_parser("reject", help="Reject a pending suggestion by ID")
     ev_reject.add_argument("suggestion_id", type=int, help="Database ID of the suggestion to reject")
     ev_reject.set_defaults(func=CMD_MAP["evolution"])
+
+    # ask
+    ask_parser = subparsers.add_parser("ask", help="Execute capabilities using natural language")
+    ask_parser.add_argument("query", nargs="?", default=None, help="Natural language query")
+    ask_parser.add_argument("--provider", default="auto", help="LLM provider (auto, ollama, openai, anthropic)")
+    ask_parser.set_defaults(func=CMD_MAP["ask"])
 
     return parser
 
