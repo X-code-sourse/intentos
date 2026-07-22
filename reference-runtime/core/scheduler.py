@@ -56,6 +56,14 @@ class Scheduler:
 
     Design constraint: The Scheduler is part of the Control Plane.
     It does NOT own state—all state is recorded as Events.
+
+    .. warning::
+
+       Known R1 violation (Phase 1 compromise):
+       ``_task_outputs``, ``_task_errors``, and other instance fields below
+       hold mutable state in memory.  This violates R1 (Control Plane owns
+       no state).  A future refactor should push these through the Event
+       Bus / Event Store.  See GUIDE.md section 12.2.
     """
 
     def __init__(
