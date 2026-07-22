@@ -1,7 +1,8 @@
 <p align="center">
   <h1 align="center">Intent OS</h1>
-  <p align="center"><strong>An open-source flight recorder for AI agents.</strong></p>
-  <p align="center">See what your agent did, why it failed, and what it cost.</p>
+  <p align="center"><strong>The open-source observability layer for AI agents.</strong></p>
+  <p align="center">Think of it as a flight recorder for your agents.</p>
+  <p align="center">See what they did, understand why it failed, and optimize what it costs.</p>
 </p>
 
 <p align="center">
@@ -19,25 +20,26 @@ pip install intentos
 # What happened?
 intent-os doctor
 
-# What did it do?
+# See every step
 intent-os inspect latest
 
-# What did it cost?
+# Track spending
 intent-os cost
 ```
 
 ---
 
-## Trace · Debug · Cost
+## Observe · Debug · Optimize
 
-AI agents are becoming powerful, but debugging them is still painful.
+AI agents are becoming powerful, but understanding them is still painful.
 
 You give an agent a task. It runs for minutes. Then it fails. And you don't know:
-- **what tools it called** — which steps it took
-- **where it failed** — what went wrong
-- **how much it cost** — tokens, model calls, latency
 
-Intent OS records everything your agent does. One command shows the full picture.
+- **Observe** — what tools it called, what steps it took
+- **Debug** — where and why it failed
+- **Optimize** — how much it cost, which model to use
+
+Intent OS records everything your agent does into structured execution traces.
 
 ```
 [14:02:01] START
@@ -55,7 +57,7 @@ Tokens:      4,891
 
 ## Record any AI agent
 
-Intent OS records **any** agent that uses OpenAI or Anthropic APIs — Claude Code, Cursor, or your own. Just set one environment variable:
+Works with any agent that uses OpenAI or Anthropic APIs — Claude Code, Cursor, or your own. Just set one environment variable:
 
 ```bash
 intent-os proxy start
@@ -64,7 +66,7 @@ export OPENAI_BASE_URL=http://localhost:8377
 export ANTHROPIC_BASE_URL=http://localhost:8377
 ```
 
-Everything runs locally. Your data stays on your machine.
+Everything runs locally. Your data stays on your machine. No cloud dependency.
 
 ---
 
@@ -120,10 +122,18 @@ intent-os proxy start
 ```
 AI Agent → Intent OS → LLM (OpenAI / Anthropic / Ollama)
                 │
-                ├── Flight Recorder (doctor / inspect / trace)
-                ├── Observability (cost / analytics)
-                └── Governance (security / audit)
+                ├── Flight Recorder (observe / debug)
+                ├── Analytics (cost / usage / optimize)
+                └── Guardrails (security / policy / audit)
 ```
+
+---
+
+## Vision
+
+**Today** Intent OS helps developers understand what their AI agents did, why they failed, and how much they cost.
+
+**Tomorrow** it aims to become the execution layer that makes agents portable, observable, and governable across any runtime.
 
 ---
 
