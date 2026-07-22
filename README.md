@@ -148,4 +148,12 @@ Phase 4: Self-optimizing AI Computing Infrastructure
 
 ## License
 
-Open-source. Governance model TBD (to be established in Phase 2+).
+Copyright (C) 2026 Intent OS Project
+
+Intent OS is licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**.
+
+**For individuals and non-commercial use:** Free. Use, modify, and distribute under AGPLv3 terms.
+
+**For commercial use:** If you integrate Intent OS into a proprietary product or use it as part of a commercial service without releasing your modifications, you must obtain a commercial license. Contact the project maintainer for details.
+
+This dual-licensing model ensures Intent OS remains open and free for the community while enabling sustainable commercial development.
