@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "intent-os"
+name = "intentos"
 version = "0.4.0"
 description = "An open interoperability layer for AI capabilities, workflows, and execution"
 readme = "README.md"
