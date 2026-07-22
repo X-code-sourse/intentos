@@ -1,10 +1,10 @@
-"""Intent OS CLI — demo command.
+"""Intent OS — demo command: Agent Flight Recorder showcase.
 
-Zero-configuration terminal demo that showcases Intent OS capabilities
-without requiring any API keys, Ollama, or external dependencies.
+Zero-configuration terminal demo that shows what Agent Flight Recorder
+does — no API keys, Ollama, or external dependencies required.
 
-Shows: validate → run → ask → security → registry search → quickstart
-All output is simulated but accurate to actual command behavior.
+The demo simulates a coding agent execution and shows the trace output,
+creating the "aha" moment: "I didn't know I could see what my agent did."
 """
 
 from __future__ import annotations
@@ -14,13 +14,7 @@ import time
 from typing import Any
 
 
-# ──────────────────────────────────────────────
-# Demo script — steps with simulated output
-# ──────────────────────────────────────────────
-
-
 def _print_slow(text: str, delay: float = 0.003) -> None:
-    """Print text with a typing-like effect."""
     for char in text:
         print(char, end="", flush=True)
         time.sleep(delay)
@@ -28,218 +22,155 @@ def _print_slow(text: str, delay: float = 0.003) -> None:
 
 
 def _section(title: str) -> None:
-    """Print a section header."""
     print()
-    print(f"  {'=' * 55}")
+    print(f"  {'=' * 50}")
     print(f"   {title}")
-    print(f"  {'=' * 55}")
+    print(f"  {'=' * 50}")
     print()
-
-
-_DEMO_STEPS = [
-    {
-        "title": "Step 1: Validate a Capability Manifest",
-        "command": "$ intent-os validate examples/translate.yaml",
-        "output": [
-            "[OK] Manifest 'translate@1.0.0' loaded successfully",
-            "",
-            "Manifest: translate@1.0.0",
-            "Publisher: intent-os.org",
-            "Input fields: ['text', 'source_lang', 'target_lang']",
-            "Output fields: ['translated_text', 'detected_language']",
-            "Security risk: low",
-            "",
-            "[OK] Manifest is valid",
-        ],
-        "explain": "A Capability Manifest describes what an AI capability does,\nwhat input it needs, and what output it produces — in a format\nthat any runtime can understand.",
-    },
-    {
-        "title": "Step 2: Execute a capability",
-        "command": "$ intent-os run examples/translate.yaml --adapter ollama \\",
-        "command2": "    --input '{\"text\": \"Hello world\", \"target_lang\": \"zh\"}'",
-        "output": [
-            "[OK] Manifest 'translate@1.0.0' loaded successfully",
-            "  Adapters loaded: ollama",
-            "  Using local Ollama (free, no API key needed)",
-            "",
-            "Executing 'translate@1.0.0' via 'ollama'...",
-            "",
-            "============================================================",
-            "EXECUTION RESULT",
-            "============================================================",
-            "  Status: success",
-            "  Runtime: ollama via OllamaAdapter",
-            "  Latency: 3215ms",
-            "  Cost: $0.0000",
-            "  Tokens: 187",
-            "  Events: 3",
-            "",
-            "  Output:",
-            '    translated_text: "你好世界"',
-            '    detected_language: "en"',
-            "",
-            "  Event Sequence:",
-            "    >> TaskStarted",
-            "    -> CapabilityInvoked",
-            "    OK TaskCompleted (3215ms)",
-        ],
-        "explain": "The same Manifest can run on ANY runtime — Ollama (local),\nOpenAI, Anthropic, or GitHub Models. No rewriting needed.",
-    },
-    {
-        "title": "Step 3: Cross-runtime comparison",
-        "command": "$ intent-os compare examples/translate.yaml \\",
-        "command2": "    --input '{\"text\": \"Hello\", \"target_lang\": \"fr\"}'",
-        "output": [
-            "",
-            "============================================================",
-            "COMPARISON RESULTS",
-            "============================================================",
-            "",
-            "openai vs ollama:",
-            "  Schema compatible:          [OK]",
-            "  Event structure match:      [OK]",
-            "  Metric dimensions match:    [OK]",
-            "",
-            "  >>> Overall: COMPATIBLE",
-            "",
-            "METRICS COMPARISON",
-            "  Metric           openai          ollama          ",
-            "  -------------------------------------------------",
-            "  Status           success         success         ",
-            "  Latency (ms)     842             3215            ",
-            "  Cost ($)         0.0018          0.0000          ",
-            "  Tokens           95              187             ",
-        ],
-        "explain": "Compare latency, cost, and token usage across different\nruntimes — all from the same Manifest. Make data-driven\ndecisions about which runtime to use.",
-    },
-    {
-        "title": "Step 4: Natural language with ask",
-        "command": "$ intent-os ask \"translate 'good morning' to Japanese\"",
-        "output": [
-            "Intent OS -- Ask",
-            '  Query: "translate \'good morning\' to Japanese"',
-            "",
-            "  Loading capability registry ...",
-            "  Registry: ~/.intent-os/store.db",
-            "  Capabilities registered: 8",
-            "",
-            "  Initialising LLM provider (auto)...",
-            "  Using provider: openai (model: gpt-4o-mini)",
-            "",
-            "  Processing request ...",
-            "",
-            "  [OK] Translation completed: \"おはようございます\"",
-            "",
-            "  Execution details:",
-            "    Status:  success",
-            "    Runtime: openai",
-            "    Latency: 1240ms",
-            "    Cost:    $0.0021",
-            "    Tokens:  156",
-        ],
-        "explain": "Zero technical knowledge needed. Just describe what you want\nin natural language. Intent OS finds or creates the right\ncapability and executes it.",
-    },
-    {
-        "title": "Step 5: Security policy enforcement",
-        "command": "$ intent-os security evaluate examples/code_review.yaml",
-        "output": [
-            "{",
-            '  "capability_name": "code_review",',
-            '  "decision": "allow",',
-            '  "rationale": "Capability \'code_review\' has risk level \'low\'",',
-            '  "policy_id": "dev-default",',
-            '  "risk_level": "low"',
-            "}",
-        ],
-        "explain": "Every capability has a declared risk level. The Security Manager\nevaluates each execution against organizational policies —\nauto-allow, require review, or block entirely.",
-    },
-    {
-        "title": "Step 6: Semantic search in your capability registry",
-        "command": "$ intent-os registry search \"code analysis\"",
-        "output": [
-            "Search results for 'code analysis' (2):",
-            "  Score    Name                               Description",
-            "  -----------------------------------------------------------------",
-            "  0.8734  code_review@1.0.0                   Review code for issues",
-            "  0.4215  text_summarize@1.0.0                Summarize text content",
-        ],
-        "explain": "No need to remember exact names. Semantic search finds\ncapabilities by what they DO, not what they're called.",
-    },
-]
 
 
 def cmd_demo(args: Any) -> None:
-    """Run an interactive terminal demo of Intent OS capabilities.
+    """Run the Agent Flight Recorder demo.
 
     When ``--auto`` is passed, the demo runs end-to-end without waiting
-    for any interactive input — suitable for CI or quick previews.
+    for any interactive input.
     """
     auto = getattr(args, "auto", False)
 
     print()
-    print("  ╔══════════════════════════════════════════════════════╗")
-    print("  ║            Intent OS — Interactive Demo              ║")
-    print("  ║  Open interoperability for AI capabilities           ║")
-    print("  ╚══════════════════════════════════════════════════════╝")
+    print("  ================================================")
+    print("    Agent Flight Recorder - Interactive Demo")
+    print("  ================================================")
     print()
-    _print_slow("  This demo shows what Intent OS can do — no API keys")
-    _print_slow("  or external services required. All output is simulated")
-    _print_slow("  but accurately reflects real command behavior.")
+    _print_slow("  See what your AI coding agent really does behind the scenes.")
+    _print_slow("  No API keys or external services required.")
     print()
+
     if not auto:
         _print_slow("  Press Enter to start...")
-        input()
+        try:
+            input()
+        except (EOFError, KeyboardInterrupt):
+            return
     else:
-        _print_slow("  Starting demo (auto mode)...")
+        _print_slow("  Starting demo...")
         time.sleep(0.5)
 
-    for step in _DEMO_STEPS:
-        _section(step["title"])
+    # ── Scene: coding agent execution ──
+    _section("Your coding agent receives a task")
 
-        # Show the command
-        _print_slow(f"  {step['command']}", delay=0.005)
-        if "command2" in step:
-            time.sleep(0.3)
-            _print_slow(f"  {step['command2']}", delay=0.005)
-
-        time.sleep(0.5)
-
-        # Show the output line by line
-        for line in step["output"]:
-            time.sleep(0.08)
-            _print_slow(f"  {line}", delay=0.002)
-
-        time.sleep(0.5)
-
-        # Show the explanation
-        print()
-        for explain_line in step["explain"].split("\n"):
-            _print_slow(f"  → {explain_line}", delay=0.003)
-
-        print()
-        if step != _DEMO_STEPS[-1]:
-            if not auto:
-                _print_slow("  Press Enter to continue...")
-                input()
-            else:
-                _print_slow("  Continuing...")
-                time.sleep(0.3)
-
-    # Closing
+    _print_slow("  Task: Refactor authentication module to use JWT")
     print()
-    print("  ╔══════════════════════════════════════════════════════╗")
-    print("  ║               Demo Complete                          ║")
-    print("  ╚══════════════════════════════════════════════════════╝")
+    time.sleep(0.3)
+
+    # Step through the execution
+    steps = [
+        ("Planning", "Planner created workflow with 4 steps", 0.3),
+        ("Reading", "Read files: auth.py, config.py, requirements.txt", 0.4),
+        ("Model", "Called Claude Sonnet 4 (prompt: 2,451 tokens)", 0.5),
+        ("Writing", "Modified auth.py (+89 lines, -23 lines)", 0.4),
+        ("Testing", "Ran pytest tests/test_auth.py", 0.5),
+        ("Result", "Tests failed: 2 passed, 1 failed", 0.3),
+    ]
+
+    for icon, desc, delay in steps:
+        _print_slow(f"    [{icon}] {desc}", delay=0.004)
+        time.sleep(delay)
+
+    # ── The "aha" moment ──
     print()
-    print("  Intent OS lets you:")
-    print("    [1] Describe capabilities once — run anywhere")
-    print("    [2] Compare runtimes by cost, speed, and quality")
-    print("    [3] Compose capabilities into workflows (DAG)")
-    print("    [4] Secure execution with policy-driven access control")
-    print("    [5] Use natural language — no technical skills needed")
+    _print_slow("  What just happened? Your agent ran 6 steps, called an AI model,")
+    _print_slow("  modified files, ran tests, and failed. But you saw none of it.")
     print()
-    print("  Ready to try it for real?")
-    print("    pip install intent-os[all]")
-    print("    export OPENAI_API_KEY=sk-...")
-    print("    intent-os ask \"translate hello to French\"")
+    time.sleep(0.8)
+
+    # ── Show the trace ──
+    _section("Agent Flight Recorder - Trace")
+
+    _print_slow("  $ intent-os inspect latest")
     print()
+
+    trace_lines = [
+        "  ================================================",
+        "    Agent Flight Recorder - Execution Trace",
+        "  ================================================",
+        "",
+        "  [OK]  Goal:        refactor-auth-to-jwt",
+        "     Version:    1.0.0",
+        "     Runtime:    anthropic (AnthropicAdapter)",
+        "     Duration:   14,327ms",
+        "     Cost:       $0.0842",
+        "     Tokens:     4,891",
+        "     Error:      Tests failed: 2 passed, 1 failed",
+        "",
+        "  -- Timeline (6 events) --",
+        "",
+        "  [14:02:01] > START (planner) refactor-auth-to-jwt",
+        "  [14:02:02] > INVOKE (adapter) refactor-auth-to-jwt",
+        "  [14:02:05] > START step=read-files",
+        "  [14:02:06] > INVOKE (adapter) read-files -- 2451 tokens",
+        "  [14:02:08] OK DONE  read-files (3241ms)",
+        "  [14:02:08] > START step=modify-auth",
+        "  [14:02:09] > INVOKE (adapter) modify-auth -- model=claude-sonnet-4",
+        "  [14:02:14] OK DONE  modify-auth (5824ms)",
+        "  [14:02:14] > START step=run-tests",
+        "  [14:02:15] > INVOKE (adapter) run-tests",
+        "  [14:02:27] !! FAIL  run-tests (12713ms) -- reason=\"test_jwt_verify failed\"",
+        "",
+        "  Trace ID: abc123-def456-ghi789",
+    ]
+
+    for line in trace_lines:
+        _print_slow(f"  {line}" if line.startswith("  ") else line, delay=0.002)
+        time.sleep(0.04)
+
+    print()
+
+    # ── Key insight ──
+    _section("What you get")
+
+    insights = [
+        ("Full visibility", "See every step your agent took - tools, models, files"),
+        ("Failure analysis", "Know exactly why and where your agent failed"),
+        ("Cost tracking", "Every call tracked: tokens, latency, total cost"),
+        ("Shareable traces", "Export traces as HTML to share with your team"),
+    ]
+
+    for icon, desc in insights:
+        _print_slow(f"  [{icon}] {desc}", delay=0.005)
+        time.sleep(0.2)
+    print()
+
+    time.sleep(0.5)
+
+    # ── HTML export demo ──
+    _section("Export trace as HTML")
+
+    _print_slow("  $ intent-os inspect latest --html")
+    _print_slow("  Trace exported to intent-os-trace-abc123-def456.html")
+    _print_slow("  Open in browser: file:///.../intent-os-trace-abc123-def456.html")
+    print()
+    _print_slow("  One file. No server. No cloud. Just the trace.")
+    print()
+
+    # ── Closing ──
+    time.sleep(0.5)
+    print()
+    print("  ================================================")
+    print("    Demo Complete")
+    print("  ================================================")
+    print()
+    _print_slow("  Your AI coding agent is a black box.")
+    _print_slow("  Agent Flight Recorder opens it.")
+    print()
+    _print_slow("  Install:  pip install intent-os")
+    _print_slow("  Run:      intent-os demo --auto")
+    _print_slow("  Docs:     https://intent-os.org")
+    print()
+
+    if not auto:
+        _print_slow("  Press Enter to exit...")
+        try:
+            input()
+        except (EOFError, KeyboardInterrupt):
+            pass

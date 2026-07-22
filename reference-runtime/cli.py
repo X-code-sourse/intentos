@@ -22,6 +22,7 @@ import commands.quickstart
 import commands.evolution
 import commands.ask
 import commands.demo
+import commands.trace
 
 # All cmd_* functions are imported from command modules via the registry pattern below
 CMD_MAP = {
@@ -40,6 +41,7 @@ CMD_MAP = {
     "evolution": commands.evolution.cmd_evolution,
     "ask": commands.ask.cmd_ask,
     "demo": commands.demo.cmd_demo,
+    "inspect": commands.trace.cmd_inspect,
 }
 
 def build_parser() -> argparse.ArgumentParser:
@@ -218,10 +220,20 @@ def build_parser() -> argparse.ArgumentParser:
     ask_parser.set_defaults(func=CMD_MAP["ask"])
 
     # demo
-    demo_parser = subparsers.add_parser("demo", help="Run an interactive terminal demo")
+    demo_parser = subparsers.add_parser("demo",
+        help="Run an interactive terminal demo of the Agent Flight Recorder")
     demo_parser.add_argument("--auto", action="store_true",
                              help="Run non-interactively (skip all pauses)")
     demo_parser.set_defaults(func=CMD_MAP["demo"])
+
+    # inspect
+    inspect_parser = subparsers.add_parser("inspect",
+        help="Show an agent execution trace — see what your agent did, why it failed, and how much it cost")
+    inspect_parser.add_argument("trace_id", nargs="?", default="latest",
+                                help="Trace ID to inspect (default: latest)")
+    inspect_parser.add_argument("--html", action="store_true",
+                                help="Export trace as a standalone HTML file for sharing")
+    inspect_parser.set_defaults(func=CMD_MAP["inspect"])
 
     return parser
 
