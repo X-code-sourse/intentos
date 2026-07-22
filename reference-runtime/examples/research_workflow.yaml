@@ -1,0 +1,72 @@
+kind: Workflow
+metadata:
+  name: company_research
+  version: 1.0.0
+  description: "Research a company: search news, analyze financials, generate report"
+
+spec:
+  goal: "Research {company} and provide an investment analysis"
+
+  tasks:
+    - id: search
+      capability: web_search@1.0.0
+      description: "Search for recent news about the company"
+      input:
+        query: "${goal.company} recent news"
+        max_results: 15
+
+    - id: financials
+      capability: financial_data_query@1.0.0
+      description: "Query financial data and metrics"
+      input:
+        ticker: "${goal.ticker}"
+        metrics: ["revenue", "pe_ratio", "growth_rate"]
+
+    - id: analyze
+      capability: financial_analyze@1.0.0
+      description: "Analyze news and financial data"
+      input:
+        news: "${search.results}"
+        financials: "${financials.statements}"
+
+    - id: report
+      capability: report_generate@1.0.0
+      description: "Generate the final investment report"
+      input:
+        analysis: "${analyze.report}"
+        format: "markdown"
+
+  edges:
+    - from: search
+      to: analyze
+      data:
+        news: "${search.results}"
+    - from: financials
+      to: analyze
+      data:
+        financials: "${financials.statements}"
+    - from: analyze
+      to: report
+      data:
+        analysis: "${analyze.report}"
+
+  semantics:
+    retry:
+      strategy: exponential
+      max_attempts: 3
+      initial_interval: 1s
+
+    timeout:
+      task: 120s
+      workflow: 600s
+
+    failure:
+      propagation: deferred
+      cancel_dependents: true
+      continue_independents: true
+      max_failures: 1
+
+    parallel:
+      max_concurrency: 3
+      strategy: task_parallel
+      merge_strategy: collect

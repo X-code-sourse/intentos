@@ -1,0 +1,485 @@
+"""
+Intent OS — Workflow Planner (Phase 1: Template-Based)
+
+The Planner's job is to convert a user goal into an executable WorkflowDAG.
+
+Phase 1 implements a template-based planner:
+  - Predefined workflow templates for common task patterns
+  - Goal matching: parse a goal → find best template → instantiate
+  - Produces a validated WorkflowSpec ready for execution
+
+This is NOT yet a full AI Query Optimizer (Phase 3).
+It does NOT enumerate multiple candidate plans and cost-optimize.
+Instead, it uses deterministic template matching with parameter filling.
+
+Future evolution (Phase 3+):
+  Template-based → Cost-based with plan enumeration → Probabilistic optimizer
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from typing import Any
+
+from core.models import CapabilityManifest
+from core.registry import CapabilityRegistry
+from core.workflow import (
+    ExecutionSemantics,
+    FailurePolicy,
+    FailurePropagation,
+    ParallelPolicy,
+    ParallelStrategy,
+    RetryPolicy,
+    RetryStrategy,
+    TimeoutPolicy,
+    WorkflowDAG,
+    WorkflowEdge,
+    WorkflowSpec,
+    WorkflowTask,
+    WorkflowValidationError,
+)
+
+
+# ──────────────────────────────────────────────
+# Workflow Template
+# ──────────────────────────────────────────────
+
+@dataclass
+class TemplateTask:
+    """A task placeholder in a workflow template."""
+    id: str
+    capability_pattern: str  # Glob/regex for capability name matching
+    description: str | None = None
+    input_template: dict[str, str] = field(default_factory=dict)
+    # input_template values can contain {goal.field} or {task_id.output} references
+
+
+@dataclass
+class TemplateEdge:
+    """An edge placeholder in a workflow template."""
+    from_task: str
+    to_task: str
+    data_mapping: dict[str, str] | None = None
+
+
+@dataclass
+class WorkflowTemplate:
+    """
+    A reusable workflow template.
+
+    Templates define the shape of a workflow for a common task pattern.
+    They are instantiated with concrete capability references and inputs
+    at plan time.
+
+    Example: a "research" template defines:
+      search → analyze → report
+    but doesn't specify which exact capabilities to use — that's
+    resolved at plan time based on the registry and goal.
+    """
+    name: str
+    description: str
+    goal_pattern: str  # Regex to match against the user's goal
+    tasks: list[TemplateTask]
+    edges: list[TemplateEdge]
+    semantics: ExecutionSemantics | None = None
+    priority: int = 0  # Higher = preferred when multiple templates match
+
+
+# ──────────────────────────────────────────────
+# Built-in Templates
+# ──────────────────────────────────────────────
+
+BUILTIN_TEMPLATES: list[WorkflowTemplate] = [
+    # Research workflow: search → analyze → report
+    WorkflowTemplate(
+        name="research",
+        description="Research a topic: search, analyze, and generate a report",
+        goal_pattern=r"(?i)(research|investigate|analyze|study|find|search)",
+        tasks=[
+            TemplateTask(
+                id="search",
+                capability_pattern="*search*",
+                description="Search for information on the topic",
+                input_template={"query": "{goal.topic}"},
+            ),
+            TemplateTask(
+                id="analyze",
+                capability_pattern="*analyze*",
+                description="Analyze the search results",
+                input_template={"text": "{search.results}"},
+            ),
+            TemplateTask(
+                id="report",
+                capability_pattern="*report*",
+                description="Generate a report from the analysis",
+                input_template={"analysis": "{analyze.result}"},
+            ),
+        ],
+        edges=[
+            TemplateEdge(from_task="search", to_task="analyze"),
+            TemplateEdge(from_task="analyze", to_task="report"),
+        ],
+        semantics=ExecutionSemantics(
+            retry=RetryPolicy(strategy=RetryStrategy.EXPONENTIAL, max_attempts=3),
+            timeout=TimeoutPolicy(task_ms=60000, workflow_ms=300000),
+            failure=FailurePolicy(
+                propagation=FailurePropagation.DEFERRED,
+                cancel_dependents=True,
+                continue_independents=True,
+            ),
+            parallel=ParallelPolicy(
+                strategy=ParallelStrategy.SEQUENTIAL,
+            ),
+        ),
+    ),
+
+    # Summarization: fetch → summarize
+    WorkflowTemplate(
+        name="summarize",
+        description="Fetch content and summarize it",
+        goal_pattern=r"(?i)(summarize|summary|extract|digest)",
+        tasks=[
+            TemplateTask(
+                id="fetch",
+                capability_pattern="*fetch*",
+                description="Fetch the content to summarize",
+                input_template={"url": "{goal.url}"},
+            ),
+            TemplateTask(
+                id="summarize",
+                capability_pattern="*summarize*",
+                description="Summarize the fetched content",
+                input_template={"text": "{fetch.content}"},
+            ),
+        ],
+        edges=[
+            TemplateEdge(from_task="fetch", to_task="summarize"),
+        ],
+        priority=1,
+    ),
+
+    # Analysis workflow: collect data → analyze → review
+    WorkflowTemplate(
+        name="analysis",
+        description="Data collection, analysis, and review",
+        goal_pattern=r"(?i)(analyze|analysis|evaluate|assess)",
+        tasks=[
+            TemplateTask(
+                id="collect",
+                capability_pattern="*search*",
+                description="Collect data on the topic",
+                input_template={"query": "{goal.topic}"},
+            ),
+            TemplateTask(
+                id="analyze",
+                capability_pattern="*analyze*",
+                description="Analyze the collected data",
+                input_template={"data": "{collect.results}"},
+            ),
+            TemplateTask(
+                id="review",
+                capability_pattern="*review*",
+                description="Review the analysis",
+                input_template={"analysis": "{analyze.result}"},
+            ),
+        ],
+        edges=[
+            TemplateEdge(from_task="collect", to_task="analyze"),
+            TemplateEdge(from_task="analyze", to_task="review"),
+        ],
+    ),
+]
+
+
+# ──────────────────────────────────────────────
+# Planner
+# ──────────────────────────────────────────────
+
+class PlanError(Exception):
+    """Raised when workflow planning fails."""
+    pass
+
+
+class NoTemplateMatchError(PlanError):
+    """Raised when no template matches the given goal."""
+    pass
+
+
+class NoCapabilityMatchError(PlanError):
+    """Raised when a template task cannot be matched to registered capabilities."""
+    pass
+
+
+@dataclass
+class PlanResult:
+    """Result of the planning process."""
+    workflow_dag: WorkflowDAG
+    template_name: str
+    goal: str
+    matched_capabilities: dict[str, CapabilityManifest]
+    warnings: list[str] = field(default_factory=list)
+
+
+class WorkflowPlanner:
+    """
+    Template-based workflow planner.
+
+    Given a user goal and a registry of available capabilities, the Planner:
+      1. Matches the goal against known workflow templates
+      2. Instantiates the best-matching template with concrete capabilities
+      3. Resolves input bindings
+      4. Produces a validated, ready-to-execute WorkflowDAG
+
+    Phase 1: Template-based, deterministic.
+    Phase 3+: Will evolve to enumerate multiple candidate plans and
+              select the optimal one using cost estimation.
+    """
+
+    def __init__(
+        self,
+        registry: CapabilityRegistry | None = None,
+        templates: list[WorkflowTemplate] | None = None,
+    ) -> None:
+        self._registry = registry
+        self._templates = templates or BUILTIN_TEMPLATES
+
+    def set_registry(self, registry: CapabilityRegistry) -> None:
+        self._registry = registry
+
+    def add_template(self, template: WorkflowTemplate) -> None:
+        self._templates.append(template)
+
+    def plan(
+        self,
+        goal: str,
+        context: dict[str, Any] | None = None,
+    ) -> PlanResult:
+        """
+        Convert a user goal into an executable workflow plan.
+
+        Args:
+            goal: The user's goal description (e.g., "research NVIDIA stock").
+            context: Optional context parameters (e.g., {"topic": "NVIDIA"}).
+
+        Returns:
+            PlanResult containing a validated WorkflowDAG.
+
+        Raises:
+            NoTemplateMatchError: If no template matches the goal.
+            NoCapabilityMatchError: If capabilities cannot be resolved.
+            PlanError: If instantiation fails.
+        """
+        context = context or {}
+
+        # Step 1: Parse goal into structured fields
+        goal_fields = self._parse_goal(goal)
+        goal_fields.update(context)
+
+        # Step 2: Find best matching template
+        template = self._match_template(goal)
+        if template is None:
+            # Fall back to a single-capability passthrough
+            template = self._create_passthrough_template(goal)
+
+        # Step 3: Match template tasks to capabilities
+        matched_caps: dict[str, CapabilityManifest] = {}
+        warnings: list[str] = []
+
+        for tmpl_task in template.tasks:
+            if self._registry is None:
+                # No registry available — create placeholder capability
+                from core.models import (
+                    CapabilityManifest, MetadataSpec, FieldSchema,
+                    RequirementSpec, SecuritySpec,
+                )
+                warnings.append(f"No registry available; using placeholder for '{tmpl_task.id}'")
+                matched_caps[tmpl_task.id] = CapabilityManifest(
+                    metadata=MetadataSpec(
+                        name=tmpl_task.id,
+                        version="1.0.0",
+                        description=tmpl_task.description or "",
+                    ),
+                    input_schema={"input": FieldSchema(type="string")},
+                    output_schema={"output": FieldSchema(type="string")},
+                    requirements=RequirementSpec(),
+                    security=SecuritySpec(),
+                )
+                continue
+
+            cap = self._resolve_capability(tmpl_task.capability_pattern)
+            if cap is None:
+                raise NoCapabilityMatchError(
+                    f"No capability matches pattern '{tmpl_task.capability_pattern}' "
+                    f"for task '{tmpl_task.id}'"
+                )
+            matched_caps[tmpl_task.id] = cap
+
+        # Step 4: Instantiate tasks with concrete capabilities
+        tasks: list[WorkflowTask] = []
+        for tmpl_task in template.tasks:
+            cap = matched_caps[tmpl_task.id]
+            resolved_input = self._resolve_inputs(
+                tmpl_task.input_template,
+                goal_fields,
+                {},
+            )
+            tasks.append(WorkflowTask(
+                id=tmpl_task.id,
+                capability=cap.id,
+                input=resolved_input,
+                description=tmpl_task.description,
+            ))
+
+        # Step 5: Instantiate edges
+        edges: list[WorkflowEdge] = []
+        for tmpl_edge in template.edges:
+            edges.append(WorkflowEdge(
+                from_task=tmpl_edge.from_task,
+                to_task=tmpl_edge.to_task,
+                data=tmpl_edge.data_mapping,
+            ))
+
+        # Step 6: Build the spec
+        semantics = template.semantics or ExecutionSemantics.defaults()
+        spec = WorkflowSpec(
+            name=f"plan_{template.name}",
+            version="1.0.0",
+            tasks=tasks,
+            edges=edges,
+            semantics=semantics,
+            description=f"Planned workflow for: {goal}",
+            goal=goal,
+        )
+
+        # Step 7: Validate and build DAG
+        try:
+            dag = WorkflowDAG(spec)
+        except WorkflowValidationError as exc:
+            raise PlanError(f"Workflow validation failed: {exc}") from exc
+
+        return PlanResult(
+            workflow_dag=dag,
+            template_name=template.name,
+            goal=goal,
+            matched_capabilities=matched_caps,
+            warnings=warnings,
+        )
+
+    def _parse_goal(self, goal: str) -> dict[str, str]:
+        """Parse a natural language goal into structured fields.
+
+        Phase 1: Simple heuristic extraction.
+        Phase 2+: LLM-based structured decomposition.
+        """
+        fields: dict[str, str] = {
+            "goal": goal,
+            "topic": goal,
+        }
+
+        # Try to extract topic after keywords
+        patterns = [
+            r"(?i)(?:research|analyze|investigate|about)\s+(.+?)(?:\.|$)",
+            r"(?i)(?:find|search|study)\s+(.+?)(?:\.|$)",
+            r"(?i)(?:summarize|summarise)\s+(.+?)(?:\.|$)",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, goal)
+            if match:
+                topic = match.group(1).strip()
+                if topic and len(topic) < 200:
+                    fields["topic"] = topic
+                    break
+
+        return fields
+
+    def _match_template(self, goal: str) -> WorkflowTemplate | None:
+        """Find the best-matching template for the given goal."""
+        candidates: list[tuple[WorkflowTemplate, int]] = []
+
+        for template in self._templates:
+            if re.search(template.goal_pattern, goal):
+                # Calculate match score
+                score = template.priority * 10
+                # Longer goal patterns get a bonus (more specific match)
+                if len(template.goal_pattern) > 10:
+                    score += 5
+                candidates.append((template, score))
+
+        if not candidates:
+            return None
+
+        # Return highest-scored template
+        candidates.sort(key=lambda x: -x[1])
+        return candidates[0][0]
+
+    def _resolve_capability(
+        self,
+        pattern: str,
+    ) -> CapabilityManifest | None:
+        """Match a capability pattern against registered capabilities.
+
+        Supports simple glob-style matching:
+          "*search*" matches any capability with "search" in its name
+        """
+        if self._registry is None:
+            return None
+
+        # Simple glob matching
+        regex_pattern = re.escape(pattern).replace(r"\*", ".*")
+        compiled = re.compile(f"^{regex_pattern}$", re.IGNORECASE)
+
+        capabilities = self._registry.list_capabilities()
+        for cap_info in capabilities:
+            if compiled.match(cap_info["name"]):
+                return self._registry.get(cap_info["name"], cap_info["version"])
+
+        return None
+
+    def _resolve_inputs(
+        self,
+        input_template: dict[str, str],
+        goal_fields: dict[str, str],
+        task_outputs: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Resolve template input bindings against goal fields.
+
+        Replaces {goal.field} and {task_id.output} references
+        with concrete values.
+        """
+        resolved: dict[str, Any] = {}
+        for key, value_template in input_template.items():
+            resolved_value = value_template
+            # Replace {goal.xxx} references
+            for field_name, field_value in goal_fields.items():
+                resolved_value = resolved_value.replace(
+                    f"{{goal.{field_name}}}", str(field_value)
+                )
+            # Replace {task_id.output} references (from prior tasks)
+            # At plan time these will be placeholders; actual values
+            # are filled at runtime by the Scheduler
+            resolved[key] = resolved_value
+        return resolved
+
+    def _create_passthrough_template(self, goal: str) -> WorkflowTemplate:
+        """Create a fallback template when no predefined template matches.
+
+        This wraps the entire goal as a single capability invocation,
+        allowing the system to fall back to direct execution.
+        """
+        return WorkflowTemplate(
+            name="passthrough",
+            description=f"Direct execution: {goal}",
+            goal_pattern=".*",  # Match everything
+            tasks=[
+                TemplateTask(
+                    id="execute",
+                    capability_pattern="*",
+                    description=str(goal),
+                    input_template={"goal": "{goal.goal}"},
+                ),
+            ],
+            edges=[],
+            semantics=ExecutionSemantics.defaults(),
+            priority=0,
+        )

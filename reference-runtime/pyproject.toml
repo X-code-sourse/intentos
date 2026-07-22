@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "intent-os"
+version = "0.2.0"
+description = "An open interoperability layer for AI capabilities, workflows, and execution"
+readme = {file = "README.md", content-type = "text/markdown"}
+authors = [
+    {name = "Intent OS Project"},
+]
+license = {text = "MIT"}
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.optional-dependencies]
+openai = ["openai>=1.0.0"]
+anthropic = ["anthropic>=0.30.0"]
+all = ["openai>=1.0.0", "anthropic>=0.30.0"]
+
+[project.urls]
+Homepage = "https://github.com/intent-os/intent-os"
+Documentation = "https://intent-os.org"
+
+[project.scripts]
+intent-os = "cli:main"
+
+[tool.setuptools.packages.find]
+include = ["core*", "adapters*", "tools*"]
+exclude = ["tests*"]

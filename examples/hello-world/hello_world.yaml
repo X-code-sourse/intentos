@@ -1,0 +1,30 @@
+kind: Capability
+metadata:
+  name: hello_world
+  version: 1.0.0
+  publisher: intent-os.org
+  description: "A simple hello world capability that greets the user"
+
+spec:
+  input:
+    name:
+      type: string
+      description: "The name to greet"
+      default: "World"
+
+  output:
+    greeting:
+      type: string
+      description: "The generated greeting"
+    message:
+      type: string
+      description: "An additional message"
+
+  requirements:
+    models:
+      - gpt-4o
+      - claude-sonnet-4
+
+  security:
+    risk: low
+    network: false
