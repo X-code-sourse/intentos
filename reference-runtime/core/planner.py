@@ -240,9 +240,11 @@ class WorkflowPlanner:
         self,
         registry: CapabilityRegistry | None = None,
         templates: list[WorkflowTemplate] | None = None,
+        analytics: Any | None = None,
     ) -> None:
         self._registry = registry
         self._templates = templates or BUILTIN_TEMPLATES
+        self._analytics = analytics
 
     def set_registry(self, registry: CapabilityRegistry) -> None:
         self._registry = registry
@@ -394,22 +396,30 @@ class WorkflowPlanner:
         return fields
 
     def _match_template(self, goal: str) -> WorkflowTemplate | None:
-        """Find the best-matching template for the given goal."""
-        candidates: list[tuple[WorkflowTemplate, int]] = []
+        """Find the best-matching template for the given goal.
 
+        When analytics data is available, templates that have historically
+        produced more successful executions are preferred.
+        """
+        perf: dict[str, int] = {}
+        if self._analytics is not None:
+            try:
+                for entry in (self._analytics.get_capability_rankings() or []):
+                    perf[entry.get("capability", "")] = entry.get("total_runs", 0)
+            except Exception:
+                pass
+
+        candidates: list[tuple[WorkflowTemplate, int]] = []
         for template in self._templates:
             if re.search(template.goal_pattern, goal):
-                # Calculate match score
                 score = template.priority * 10
-                # Longer goal patterns get a bonus (more specific match)
                 if len(template.goal_pattern) > 10:
                     score += 5
+                score += min(perf.get(template.name, 0), 20)
                 candidates.append((template, score))
 
         if not candidates:
             return None
-
-        # Return highest-scored template
         candidates.sort(key=lambda x: -x[1])
         return candidates[0][0]
 
@@ -419,22 +429,36 @@ class WorkflowPlanner:
     ) -> CapabilityManifest | None:
         """Match a capability pattern against registered capabilities.
 
-        Supports simple glob-style matching:
-          "*search*" matches any capability with "search" in its name
+        When analytics data is available, prefers capabilities with
+        higher historical success rates.
         """
         if self._registry is None:
             return None
 
-        # Simple glob matching
         regex_pattern = re.escape(pattern).replace(r"\*", ".*")
         compiled = re.compile(f"^{regex_pattern}$", re.IGNORECASE)
 
+        perf: dict[str, float] = {}
+        if self._analytics is not None:
+            try:
+                for entry in (self._analytics.get_capability_rankings() or []):
+                    n = entry.get("capability", "")
+                    r = entry.get("success_rate", 0.5) or 0.0
+                    perf[n] = r
+            except Exception:
+                pass
+
+        matches: list[tuple[str, str, float]] = []
         capabilities = self._registry.list_capabilities()
         for cap_info in capabilities:
             if compiled.match(cap_info["name"]):
-                return self._registry.get(cap_info["name"], cap_info["version"])
+                score = perf.get(cap_info["name"], 0.5)
+                matches.append((cap_info["name"], cap_info["version"], score))
 
-        return None
+        if not matches:
+            return None
+        matches.sort(key=lambda x: -x[2])
+        return self._registry.get(matches[0][0], matches[0][1])
 
     def _resolve_inputs(
         self,
