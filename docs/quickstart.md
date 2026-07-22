@@ -5,22 +5,22 @@ Get Intent OS running in 60 seconds.
 ## 1. Install
 
 ```bash
-pip install intent-os
+pip install intentos
 ```
 
 Or install with support for a specific AI provider:
 
 ```bash
-pip install "intent-os[openai]"    # OpenAI support
-pip install "intent-os[anthropic]" # Anthropic support
-pip install "intent-os[all]"       # All providers
+pip install "intentos[openai]"    # OpenAI support
+pip install "intentos[anthropic]" # Anthropic support
+pip install "intentos[all]"       # All providers
 ```
 
 Verify the installation:
 
 ```bash
 intent-os --version
-# intent-os 0.4.0
+# intent-os 0.4.1
 ```
 
 ## 2. Validate a Manifest

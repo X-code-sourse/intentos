@@ -4,6 +4,21 @@ All notable changes to Intent OS are documented here.
 
 ---
 
+## v0.4.1 (2026-07-22)
+
+### Bug Fixes
+
+- Bundle example manifests (translate, code_review, sentiment_analyze, etc.) in pip package so `intent-os run <name>` works after `pip install intentos`
+- Fix `pip install intent-os` leftover in demo output (now `pip install intentos`)
+- Inconsistent pip install commands across README and demo
+
+### PyPI
+
+- Package renamed from `intent-os` to `intentos` (PyPI name conflict)
+- v0.4.1 published with correct bundled examples
+
+---
+
 ## v0.4.0 (2026-07-22)
 
 ### Highlights

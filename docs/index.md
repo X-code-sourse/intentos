@@ -1,11 +1,10 @@
-# Your AI capabilities should not be locked into any one company.
+# The flight recorder for AI coding agents.
 
-**Intent OS is an open interoperability layer for AI capabilities, workflows, and execution.** Write your capability once — run it on any runtime, share it with anyone, and never rewrite for a different platform.
+**See exactly what your AI agent did, why it failed, and how much it cost.** Every model call, every tool invocation, every file change — captured as a structured execution trace.
 
 ```bash
-pip install intent-os
-intent-os run translate "Hello world" -p target_lang=zh
-# → translated_text: "你好世界"
+pip install intentos
+intent-os demo --auto
 ```
 
 ---
@@ -14,11 +13,11 @@ intent-os run translate "Hello world" -p target_lang=zh
 
 Three things, simply:
 
-:material-file-document: **Describe** — A YAML manifest defines what a capability does, what input it needs, and what output it produces. No vendor-specific SDKs, no platform lock-in.
+:material-file-eye: **Trace** — Record every step your AI agent takes. Model calls, tool invocations, file changes, test runs — all captured.
 
-:material-rocket-launch: **Execute** — Run the same manifest on OpenAI, Anthropic, Ollama, or any compatible runtime. Adapters handle the protocol differences — you just write the manifest once.
+:material-chart-bar: **Analyze** — See cost, latency, token usage, and failure reasons for every execution. Know why your agent failed.
 
-:material-magnify: **Discover** — A registry tracks available capabilities. Search by intent ("translate", "code review", "summarize"), find what you need, and reuse it instantly.
+:material-shield-check: **Govern** — Define security policies that control what agents can do. Audit every action with full compliance reporting.
 
 ---
 

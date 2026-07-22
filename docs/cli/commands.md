@@ -8,7 +8,7 @@ Intent OS provides 16 CLI commands organized into five categories.
 
 ```bash
 intent-os --help        # Show help
-intent-os --version     # Show version (0.4.0)
+intent-os --version     # Show version (0.4.1)
 ```
 
 ---
