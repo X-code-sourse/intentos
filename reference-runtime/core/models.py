@@ -48,6 +48,16 @@ class EventType(Enum):
     CAPABILITY_REGISTERED = "CapabilityRegistered"
     POLICY_EVALUATED = "PolicyEvaluated"
     RESOURCE_WARNING = "ResourceWarning"
+    # Security events (SPEC-0004)
+    PERMISSION_GRANTED = "PermissionGranted"
+    PERMISSION_DENIED = "PermissionDenied"
+    REVIEW_EXPIRED = "ReviewExpired"
+    POLICY_VIOLATION = "PolicyViolation"
+    # Evolution Loop events
+    SUGGESTION_GENERATED = "SuggestionGenerated"
+    SUGGESTION_AUTO_APPLIED = "SuggestionAutoApplied"
+    SUGGESTION_DISMISSED = "SuggestionDismissed"
+    LOOP_ITERATION = "LoopIteration"
 
 
 class ExecutionStatus(Enum):

@@ -26,6 +26,7 @@ from core.models import (
     EventType,
 )
 from core.recorder import ExecutionRecorder
+from core.security import SecurityManager, SecurityDecision, SecurityError
 
 
 class ExecutionError(Exception):
@@ -99,6 +100,7 @@ class Executor:
 
     def __init__(self) -> None:
         self._adapters: dict[str, Any] = {}
+        self._security_manager: SecurityManager | None = None
 
     def register_adapter(self, name: str, adapter: Any) -> None:
         """
@@ -113,6 +115,15 @@ class Executor:
     def get_available_adapters(self) -> list[str]:
         """Return names of all registered adapters."""
         return list(self._adapters.keys())
+
+    def set_security_manager(self, mgr: SecurityManager) -> None:
+        """
+        Set the security manager for policy evaluation.
+
+        Args:
+            mgr: A SecurityManager instance for evaluating capability security.
+        """
+        self._security_manager = mgr
 
     def execute(
         self,
@@ -164,6 +175,22 @@ class Executor:
 
         # Select adapter
         adapter = self._select_adapter(manifest, adapter_name)
+
+        # Security check
+        if self._security_manager is not None and manifest.security is not None:
+            risk = manifest.security.risk.value if manifest.security.risk else "medium"
+            eval_result = self._security_manager.evaluate(
+                capability_name=manifest.name,
+                risk_level=risk,
+            )
+            if eval_result.decision == SecurityDecision.DENY:
+                raise ExecutionError(
+                    f"Security policy denied: {eval_result.rationale}"
+                )
+            if eval_result.decision == SecurityDecision.REQUIRE_REVIEW:
+                raise ExecutionError(
+                    f"Security review required: {eval_result.rationale}"
+                )
 
         # Record adapter selection
         recorder.record_invoked(

@@ -87,7 +87,7 @@ def cmd_policy_get(args: Any) -> None:
     try:
         from core.security import PolicyStore  # lazy import
 
-        policy_id: str = args.policy_id
+        policy_id: str = args.name
         store = PolicyStore(_db_path_from_args(args))
         policy = store.get(policy_id)
         store.close()
@@ -183,15 +183,26 @@ def cmd_evaluate(args: Any) -> None:
             print("Error: Manifest must contain a mapping.", file=sys.stderr)
             sys.exit(1)
 
-        capability: dict[str, Any] = raw.get("capability", {})
-        context: dict[str, Any] = raw.get("context", {})
+        # Try standard Capability Manifest format first
+        if raw.get("kind") == "Capability":
+            from core.parser import parse_manifest
+            manifest, _ = parse_manifest(filepath)
+            capability = {
+                "name": manifest.name,
+                "risk": manifest.security.risk.value if manifest.security and manifest.security.risk else "low",
+            }
+            context = {}
+        else:
+            # Custom evaluation format with capability + context
+            capability: dict[str, Any] = raw.get("capability", {})
+            context: dict[str, Any] = raw.get("context", {})
 
-        if not capability or "name" not in capability:
-            print(
-                "Error: Manifest must include a 'capability' dict with a 'name' key.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+            if not capability or "name" not in capability:
+                print(
+                    "Error: Manifest must include a 'capability' dict with a 'name' key.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
         db_path = _db_path_from_args(args)
         policy_store = PolicyStore(db_path)
