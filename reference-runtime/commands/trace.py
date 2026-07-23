@@ -116,6 +116,23 @@ def _print_terminal(data: dict[str, Any]) -> None:
     print("  ================================================")
     print()
 
+    # Extract agent ID from events (proxy tracer stores source_agent in payload)
+    agent_id = None
+    for evt in events:
+        raw_payload = evt.get("payload", "{}")
+        if isinstance(raw_payload, str):
+            import json as _json
+            try:
+                p = _json.loads(raw_payload)
+            except (_json.JSONDecodeError, TypeError):
+                p = {}
+        else:
+            p = raw_payload
+        sa = p.get("source_agent") if isinstance(p, dict) else None
+        if sa:
+            agent_id = sa
+            break
+
     # Identity section
     if record:
         name = record.get("manifest_name", "?")
@@ -129,7 +146,9 @@ def _print_terminal(data: dict[str, Any]) -> None:
         error = record.get("error")
 
         icon = _STATUS_ICON.get(status, "❓")
-        print(f"  {icon}  Goal:        {name}")
+        if agent_id:
+            print(f"  {icon}  Agent ID:    {agent_id}")
+        print(f"     Goal:       {name}")
         print(f"     Version:    {version}")
         print(f"     Runtime:    {runtime} ({adapter})")
         print(f"     Duration:   {latency:.0f}ms")
