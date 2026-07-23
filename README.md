@@ -139,6 +139,30 @@ Intent OS is **building the execution layer for AI agents.**
 
 ---
 
+## Why an execution layer?
+
+AI agents are evolving from single workflows into complex systems composed of models, tools, memory, and runtimes.
+
+Existing agent frameworks and harnesses help individual agents run better. But as agents become more diverse, a new problem emerges: **how do we understand, manage, and connect agent executions across different runtimes?**
+
+Intent OS focuses on this missing execution layer.
+
+```
+Foundation Models
+        │
+Agent Frameworks / Harnesses
+  (LangGraph, CrewAI, OpenAI Agents SDK …)
+        │
+Intent OS Execution Layer
+  (Observe · Debug · Govern · Connect)
+        │
+Tools · Capabilities · Policies · Data
+        │
+Agent Ecosystem
+```
+
+---
+
 ## Tested
 
 **709 tests passed, 8 skipped, 0 failed** — CI across Python 3.10, 3.11, and 3.12.
