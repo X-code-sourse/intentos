@@ -69,7 +69,24 @@ def build_injection_prompt(agent_id: str,
     if traits:
         parts.append(f"Traits: {', '.join(traits)}")
 
-    # ── 2. Last context (optional) ──
+    # ── 2. Capability context (SPEC-0010 Layer 2) ──
+    try:
+        from core.capability_context import compute_capability_profile
+        profiles = compute_capability_profile(agent_id, db_path=db_path)
+        if profiles:
+            cap_lines = []
+            for p in profiles[:3]:  # top 3 capabilities
+                cap_lines.append(
+                    f"  {p.label}: {p.success_rate:.0%} success "
+                    f"({p.total_tasks} tasks, {p.level})"
+                )
+            if cap_lines:
+                parts.append("Proven capabilities:")
+                parts.extend(cap_lines)
+    except Exception:
+        pass
+
+    # ── 3. Last context (optional) ──
     try:
         from core.context_store import ContextStore
         ctx_store = ContextStore(db_path)

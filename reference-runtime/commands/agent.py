@@ -276,6 +276,22 @@ def _cmd_get(args: Any) -> None:
         print("    (no execution data yet)")
     print()
 
+    # ── Capability Context (SPEC-0010) ──
+    try:
+        from core.capability_context import compute_capability_profile
+        profiles = compute_capability_profile(agent_id)
+        if profiles:
+            print(f"  Capability Context ({len(profiles)}):")
+            for p in profiles:
+                level_tag = {"expert": "EXP", "proficient": "PRF", "practitioner": "PRA"}
+                tag = level_tag.get(p.level, "?")
+                print(f"    {p.name:<30} {tag:<6} {p.success_rate:.0%}  ({p.total_tasks} tasks, ${p.total_cost_usd:.2f})")
+                for pt in p.proven_patterns[:2]:
+                    print(f"      {pt.task_type:<28} {pt.success_rate:.0%}  ({pt.sample_count} samples)")
+            print()
+    except Exception:
+        pass
+
     # ── Recent Executions ──
     if recent:
         print(f"  Recent Executions:")

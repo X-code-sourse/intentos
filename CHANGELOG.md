@@ -4,6 +4,19 @@ All notable changes to Intent OS are documented here.
 
 ---
 
+## v0.10.0 (2026-07-24)
+
+### Capability Context — Skills with Evidence (SPEC-0010 Layer 2)
+
+- **`core/capability_context.py`** — New module: `compute_capability_profile(agent_id)` aggregates execution records into structured capability profiles with proven success rates, sample counts, cost/token metrics, and preferred models. Not tags — evidence-backed capability proof.
+- **`agent get` Capability Context block** — The person-card output now shows each capability with level (expert/proficient/practitioner), success rate, task count, and proven patterns.
+- **`context_injector` capability injection** — The proxy now injects "Proven capabilities" into the LLM system prompt: "Financial Analysis: 92% success (3200 tasks, expert)".
+- **Experience structured fields** — `structured_situation`, `structured_mistake`, `structured_lesson`, `structured_trigger` added to Experience model. Auto-populated by Failure Pattern extractor. Migration included for existing databases.
+- **SPEC-0010 data model validated** — Identity, Capability, and Experience layers now all have working implementations. Working Context and Environment Context ready for future phases.
+- **16 new tests** — Capability profile aggregation, cost/token math, level classification, agent isolation. 866 tests total, zero regressions.
+
+---
+
 ## v0.9.0 (2026-07-24)
 
 ### MCP Agent Resources — Agents Discoverable by Any Runtime

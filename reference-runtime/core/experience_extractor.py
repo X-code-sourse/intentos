@@ -74,6 +74,10 @@ class Experience:
     source_data: dict[str, Any] = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
     created_at: str = ""
+    structured_situation: str = ""
+    structured_mistake: str = ""
+    structured_lesson: str = ""
+    structured_trigger: str = ""
 
     # Canonical set of experience types
     VALID_TYPES: tuple[str, ...] = (
@@ -165,7 +169,11 @@ CREATE TABLE IF NOT EXISTS experiences (
     occurrence_count INTEGER NOT NULL DEFAULT 0,
     source_data TEXT NOT NULL DEFAULT '{}',
     tags TEXT NOT NULL DEFAULT '[]',
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    structured_situation TEXT NOT NULL DEFAULT '',
+    structured_mistake TEXT NOT NULL DEFAULT '',
+    structured_lesson TEXT NOT NULL DEFAULT '',
+    structured_trigger TEXT NOT NULL DEFAULT ''
 );
 """
 
@@ -208,6 +216,20 @@ class ExperienceStore:
             )
         except sqlite3.OperationalError:
             pass  # Column already exists
+        # Migration v0.10.0: structured pattern fields
+        STRUCTURED_COLS = [
+            "structured_situation",
+            "structured_mistake",
+            "structured_lesson",
+            "structured_trigger",
+        ]
+        for col in STRUCTURED_COLS:
+            try:
+                conn.execute(
+                    f"ALTER TABLE experiences ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"
+                )
+            except sqlite3.OperationalError:
+                pass  # Column already exists or table wasn't created yet
         for idx in CREATE_EXP_INDEXES:
             try:
                 conn.execute(idx)
@@ -230,8 +252,11 @@ class ExperienceStore:
             conn.execute(
                 """INSERT OR REPLACE INTO experiences
                    (experience_id, agent_id, type, observation, recommendation,
-                    confidence, occurrence_count, source_data, tags, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    confidence, occurrence_count, source_data, tags, created_at,
+                    structured_situation, structured_mistake,
+                    structured_lesson, structured_trigger)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                           ?, ?, ?, ?)""",
                 (
                     experience.experience_id,
                     experience.agent_id,
@@ -243,6 +268,10 @@ class ExperienceStore:
                     _safe_json_dumps(experience.source_data),
                     _safe_json_dumps(experience.tags),
                     experience.created_at or _now_iso(),
+                    experience.structured_situation,
+                    experience.structured_mistake,
+                    experience.structured_lesson,
+                    experience.structured_trigger,
                 ),
             )
             conn.commit()
@@ -389,6 +418,10 @@ def _row_to_experience(row: dict[str, Any]) -> Experience:
         source_data=source_data,
         tags=list(tags) if isinstance(tags, (list, tuple)) else [],
         created_at=row["created_at"] or "",
+        structured_situation=row.get("structured_situation", "") or "",
+        structured_mistake=row.get("structured_mistake", "") or "",
+        structured_lesson=row.get("structured_lesson", "") or "",
+        structured_trigger=row.get("structured_trigger", "") or "",
     )
 
 
@@ -514,6 +547,7 @@ class ExperienceExtractor:
             purity = top_errors[0][1] / count if top_errors else 0.5
             confidence = min(0.95, 0.4 + 0.1 * min(count, 5) + 0.1 * purity)
 
+            top_manifest = manifests.most_common(1)[0][0] if manifests else ""
             experiences.append(Experience(
                 experience_id=self._generate_experience_id(),
                 agent_id=agent_id,
@@ -530,6 +564,10 @@ class ExperienceExtractor:
                     "since_days": since_days,
                 },
                 created_at=_now_iso(),
+                structured_situation=f"executing {top_manifest or 'unknown'} with error type {error_type}",
+                structured_mistake=f"repeated failure ({count}x in {since_days}d): {top_errors[0][0][:150] if top_errors else error_type}",
+                structured_lesson=recommendation,
+                structured_trigger=f"{error_type} {top_manifest.split('@')[0] if top_manifest else ''}",
             ))
 
         return experiences

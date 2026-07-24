@@ -42,7 +42,7 @@ from core.models import Experience, _VALID_EXPERIENCE_TYPES
 EXPERIENCE_DB = str(Path.home() / ".intent-os" / "intent.db")
 
 # Current schema version — bump when columns are added
-_SCHEMA_VERSION = 1
+_SCHEMA_VERSION = 2
 
 CREATE_EXPERIENCES_TABLE = """
 CREATE TABLE IF NOT EXISTS experiences (
@@ -59,7 +59,11 @@ CREATE TABLE IF NOT EXISTS experiences (
     last_validated_at TEXT,
     usage_count INTEGER NOT NULL DEFAULT 0,
     success_rate_when_applied REAL NOT NULL DEFAULT 0.0,
-    expires_at TEXT
+    expires_at TEXT,
+    structured_situation TEXT NOT NULL DEFAULT '',
+    structured_mistake TEXT NOT NULL DEFAULT '',
+    structured_lesson TEXT NOT NULL DEFAULT '',
+    structured_trigger TEXT NOT NULL DEFAULT ''
 );
 """
 
@@ -166,11 +170,18 @@ class ExperienceStore:
             # ── Migration: schema version 1 (baseline) ──
             # Handled by CREATE TABLE IF NOT EXISTS above.
 
-            # ── Future migration template ──
-            # if current < 2 and "new_field" not in existing_cols:
-            #     conn.execute(
-            #         "ALTER TABLE experiences ADD COLUMN new_field TEXT NOT NULL DEFAULT ''"
-            #     )
+            # ── Migration: schema version 2 (v0.10.0, SPEC-0010 structured fields) ──
+            _STRUCTURED_COLS = [
+                "structured_situation",
+                "structured_mistake",
+                "structured_lesson",
+                "structured_trigger",
+            ]
+            for col in _STRUCTURED_COLS:
+                if col not in existing_cols:
+                    conn.execute(
+                        f"ALTER TABLE experiences ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"
+                    )
 
             # Record latest schema version
             conn.execute("DELETE FROM _schema_version")
@@ -199,6 +210,10 @@ class ExperienceStore:
             "usage_count": row["usage_count"],
             "success_rate_when_applied": row["success_rate_when_applied"],
             "expires_at": row["expires_at"],
+            "structured_situation": row["structured_situation"] if "structured_situation" in row.keys() else "",
+            "structured_mistake": row["structured_mistake"] if "structured_mistake" in row.keys() else "",
+            "structured_lesson": row["structured_lesson"] if "structured_lesson" in row.keys() else "",
+            "structured_trigger": row["structured_trigger"] if "structured_trigger" in row.keys() else "",
         }
 
     # ── CRUD ──
@@ -214,6 +229,10 @@ class ExperienceStore:
         domain: str = "",
         tags: list[str] | None = None,
         expires_at: str | None = None,
+        structured_situation: str = "",
+        structured_mistake: str = "",
+        structured_lesson: str = "",
+        structured_trigger: str = "",
     ) -> dict[str, Any]:
         """Create a new experience record.
 
@@ -259,8 +278,11 @@ class ExperienceStore:
                        (experience_id, agent_id, source_executions, type,
                         observation, recommendation, confidence, domain, tags,
                         created_at, last_validated_at, usage_count,
-                        success_rate_when_applied, expires_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, 0.0, ?)""",
+                        success_rate_when_applied, expires_at,
+                        structured_situation, structured_mistake,
+                        structured_lesson, structured_trigger)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, 0.0, ?,
+                               ?, ?, ?, ?)""",
                     (
                         exp_id,
                         agent_id,
@@ -273,6 +295,10 @@ class ExperienceStore:
                         _json_dumps(tag_list),
                         now,
                         expires_at,
+                        structured_situation,
+                        structured_mistake,
+                        structured_lesson,
+                        structured_trigger,
                     ),
                 )
                 conn.commit()
@@ -298,6 +324,10 @@ class ExperienceStore:
             "usage_count": 0,
             "success_rate_when_applied": 0.0,
             "expires_at": expires_at,
+            "structured_situation": structured_situation,
+            "structured_mistake": structured_mistake,
+            "structured_lesson": structured_lesson,
+            "structured_trigger": structured_trigger,
         }
 
     def get(self, experience_id: str) -> dict[str, Any] | None:

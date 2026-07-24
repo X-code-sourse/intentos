@@ -490,6 +490,11 @@ class Experience:
     usage_count: int = 0
     success_rate_when_applied: float = 0.0
     expires_at: str | None = None
+    # v0.10.0 — structured pattern fields (SPEC-0010 Layer 3)
+    structured_situation: str = ""
+    structured_mistake: str = ""
+    structured_lesson: str = ""
+    structured_trigger: str = ""
 
 
 # ──────────────────────────────────────────────
