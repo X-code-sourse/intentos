@@ -4,6 +4,18 @@ All notable changes to Intent OS are documented here.
 
 ---
 
+## v0.11.0 (2026-07-24)
+
+### Context Retrieval — Relevant Context, Not Everything
+
+- **`core/context_retrieval.py`** — New module: `retrieve_context(agent_id, query)` finds the most relevant Capability + Experience entries using keyword matching. No vector DB needed — just structured field matching with a scoring formula that factors in confidence and sample count.
+- **Injector now uses retrieval** — `build_injection_prompt()` accepts a `query` parameter. When provided, only context relevant to the user's request is injected. When absent, falls back to loading recent experiences. Saves ~100-300 tokens per call by skipping irrelevant experiences.
+- **Proxy extracts user queries** — The proxy automatically extracts the user's latest message from the LLM request body and passes it to the context injector. OpenAI and Anthropic formats both supported.
+- **`intent-os context search <agent_id> <query>`** — New CLI command for ad-hoc context retrieval. Shows scored results with source (capability/experience), relevance, and confidence.
+- **13 new tests** — Keyword extraction, exact/partial/no-match retrieval, capability matching, empty query fallback, max results limiting, and format output. 879 tests total, zero regressions.
+
+---
+
 ## v0.10.0 (2026-07-24)
 
 ### Capability Context — Skills with Evidence (SPEC-0010 Layer 2)

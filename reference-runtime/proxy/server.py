@@ -231,8 +231,30 @@ class ProxyHandler(BaseHTTPRequestHandler):
         # ── Phase C: Inject agent context into the LLM request ──
         if self._agent_id and request_body:
             try:
+                # Extract user's latest message as query for context retrieval
+                user_query = None
+                if provider == "openai":
+                    msgs = request_body.get("messages", [])
+                    for m in reversed(msgs):
+                        if m.get("role") == "user":
+                            raw = m.get("content", "")
+                            user_query = str(raw)[:200] if raw else None
+                            break
+                elif provider == "anthropic":
+                    msgs = request_body.get("messages", [])
+                    for m in reversed(msgs):
+                        if m.get("role") == "user":
+                            raw = m.get("content", "")
+                            if isinstance(raw, list):
+                                texts = [c.get("text", "") for c in raw
+                                         if isinstance(c, dict) and c.get("type") == "text"]
+                                user_query = " ".join(texts)[:200] if texts else None
+                            else:
+                                user_query = str(raw)[:200] if raw else None
+                            break
+
                 from core.context_injector import build_injection_prompt
-                prompt = build_injection_prompt(self._agent_id)
+                prompt = build_injection_prompt(self._agent_id, query=user_query)
                 if prompt:
                     if provider == "openai":
                         msgs = request_body.get("messages", [])

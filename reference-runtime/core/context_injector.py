@@ -33,14 +33,18 @@ _MAX_OBS_LENGTH = 120         # truncate long observations
 
 def build_injection_prompt(agent_id: str,
                            max_experiences: int = _MAX_EXPERIENCES,
-                           db_path: str | None = None) -> str | None:
-    """Build a system-prompt string from agent identity + recent experiences.
+                           db_path: str | None = None,
+                           query: str | None = None) -> str | None:
+    """Build a system-prompt string from agent identity + relevant context.
+
+    When *query* is provided, uses :func:`~core.context_retrieval.retrieve_context`
+    to load only context relevant to the user's current request.
 
     Returns ``None`` when no agent is found (caller skips injection).
 
     The prompt is designed to be:
     - Short (~100–250 tokens)
-    - Informative (identity + top experiences)
+    - Informative (identity + proven capabilities + relevant experiences)
     - Non-interfering (does not override the agent's own system prompt)
     """
     # Lazy imports — never block the proxy on missing stores
@@ -99,34 +103,50 @@ def build_injection_prompt(agent_id: str,
     except Exception:
         pass
 
-    # ── 3. Recent experiences ──
-    try:
-        exp_store = ExperienceStore(db_path)
-        exps = exp_store.list(agent_id=agent_id, limit=max_experiences)
-    except Exception:
-        exps = []
+    # ── 3. Recent / relevant experiences ──
+    if query:
+        # Use context retrieval to find relevant experiences
+        try:
+            from core.context_retrieval import retrieve_context, format_retrieved_context
+            results = retrieve_context(agent_id, query,
+                                        max_results=max_experiences,
+                                        db_path=db_path)
+            ctx_text = format_retrieved_context(results, max_results=max_experiences)
+            if ctx_text:
+                parts.append("")
+                parts.append(ctx_text)
+        except Exception:
+            pass
+    else:
+        # Fall back to just listing recent experiences
+        try:
+            from core.experience_store import ExperienceStore
+            exp_store = ExperienceStore(db_path)
+            exps = exp_store.list(agent_id=agent_id, limit=max_experiences)
+        except Exception:
+            exps = []
 
-    if exps:
-        _ICONS = {
-            "failure_pattern": "[FAILURE]",
-            "success_strategy": "[SUCCESS]",
-            "tool_preference": "[TOOL]",
-            "model_performance": "[MODEL]",
-            "data_source_reliability": "[DATA]",
-            "environment_constraint": "[ENV]",
-            "user_feedback": "[FEEDBACK]",
-        }
-        parts.append("")
-        parts.append("You've learned from past executions:")
+        if exps:
+            _ICONS = {
+                "failure_pattern": "[FAILURE]",
+                "success_strategy": "[SUCCESS]",
+                "tool_preference": "[TOOL]",
+                "model_performance": "[MODEL]",
+                "data_source_reliability": "[DATA]",
+                "environment_constraint": "[ENV]",
+                "user_feedback": "[FEEDBACK]",
+            }
+            parts.append("")
+            parts.append("You've learned from past executions:")
 
-        for exp in exps:
-            etype = exp.get("type", "")
-            obs = (exp.get("observation") or "").strip()
-            if len(obs) > _MAX_OBS_LENGTH:
-                obs = obs[:_MAX_OBS_LENGTH - 3] + "..."
-            if obs:
-                icon = _ICONS.get(etype, "[?]")
-                parts.append(f"  {icon} {obs}")
+            for exp in exps:
+                etype = exp.get("type", "")
+                obs = (exp.get("observation") or "").strip()
+                if len(obs) > _MAX_OBS_LENGTH:
+                    obs = obs[:_MAX_OBS_LENGTH - 3] + "..."
+                if obs:
+                    icon = _ICONS.get(etype, "[?]")
+                    parts.append(f"  {icon} {obs}")
 
     return "\n".join(parts)
 

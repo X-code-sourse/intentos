@@ -40,6 +40,8 @@ def cmd_context(args: Any) -> None:
         _cmd_diff(args)
     elif action == "resume":
         _cmd_resume(args)
+    elif action == "search":
+        _cmd_search(args)
     else:
         print(f"Unknown context action: {action}", file=sys.stderr)
         sys.exit(1)
@@ -456,6 +458,51 @@ def _print_diff(result: dict[str, Any]) -> None:
     if scope_changed:
         print("  Scope: changed")
 
+    print()
+
+
+def _cmd_search(args: Any) -> None:
+    """Search an agent's context for relevant capabilities and experiences."""
+    from core.agent_store import AgentStore
+    from core.context_retrieval import retrieve_context
+
+    agent_id = args.agent_id
+    query = getattr(args, "query", "") or ""
+    limit = getattr(args, "limit", 10)
+
+    store = AgentStore()
+    agent = store.get(agent_id)
+    if agent is None:
+        print(f"  Agent not found: {agent_id}", file=sys.stderr)
+        sys.exit(1)
+
+    results = retrieve_context(agent_id, query, max_results=limit)
+
+    avatar_line = f" {agent.avatar}" if agent.avatar else ""
+    print()
+    print("  ================================================")
+    print("    Context Search Results")
+    print("  ================================================")
+    print()
+    print(f"  Query: \"{query[:80]}\"")
+    print(f"  Agent: {agent.name}{avatar_line} ({agent_id})")
+    print()
+
+    if not results:
+        print("  No relevant context found.")
+        print()
+        return
+
+    for r in results:
+        source_tag = "CAPABILITY" if r.source == "capability" else "EXPERIENCE"
+        print(f"  [{r.relevance_score:.2f}] {source_tag}  {r.source_id}")
+        content = r.content[:100]
+        print(f"         {content}")
+        confidence_str = f"{r.confidence:.0%} confidence" if r.confidence > 0 else ""
+        if confidence_str:
+            print(f"         ({confidence_str})")
+        print()
+    print(f"  Search completed. {len(results)} result(s).")
     print()
 
 

@@ -73,7 +73,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Intent OS Reference Runtime - Open AI Capability Interoperability",
         epilog="Phase 0 - Prove that one Manifest can run on multiple runtimes.",
     )
-    parser.add_argument("--version", action="version", version="intent-os 0.10.0")
+    parser.add_argument("--version", action="version", version="intent-os 0.11.0")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -480,6 +480,11 @@ def build_parser() -> argparse.ArgumentParser:
     ctx_resume = ctx_sub.add_parser("resume", help="Resume an agent's last context")
     ctx_resume.add_argument("agent_id", help="Agent ID to resume")
     ctx_resume.set_defaults(func=CMD_MAP["context"])
+    ctx_search = ctx_sub.add_parser("search", help="Search agent context by keyword")
+    ctx_search.add_argument("agent_id", help="Agent ID to search")
+    ctx_search.add_argument("query", help="Search query (e.g. 'analyze Nvidia earnings')")
+    ctx_search.add_argument("--limit", type=int, default=10, help="Max results")
+    ctx_search.set_defaults(func=CMD_MAP["context"])
 
     # evidence
     evi_parser = subparsers.add_parser("evidence",
