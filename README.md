@@ -9,7 +9,7 @@
   <a href="https://haihaoxu.github.io/intentos/"><img src="https://img.shields.io/badge/docs-online-blue?style=flat" alt="Docs"></a>
   <a href="https://github.com/haihaoxu/intentos"><img src="https://img.shields.io/badge/github-haihaoxu/intentos-blue?style=flat&logo=github" alt="GitHub"></a>
   <a href="https://github.com/haihaoxu/intentos/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPLv3-blue?style=flat" alt="License"></a>
-  <a href="https://github.com/haihaoxu/intentos/actions"><img src="https://img.shields.io/badge/tests-721%20passed-brightgreen?style=flat" alt="Tests"></a>
+  <a href="https://github.com/haihaoxu/intentos/actions"><img src="https://img.shields.io/badge/tests-824%20passed-brightgreen?style=flat" alt="Tests"></a>
 </p>
 
 ---
@@ -128,7 +128,7 @@ When multiple people use multiple agents, "what happened" becomes a business que
 | Just logging | **Structured traces.** One execution → many API calls → one timeline. |
 | Postgres + Redis + S3 | **One SQLite file.** No infrastructure needed. |
 
-No API key to sign up. No dashboard to log into. Your agent's execution data is yours — it lives in `~/.intent-os/events.db`.
+No API key to sign up. No dashboard to log into. Your agent's execution data is yours — it lives in `~/.intent-os/intent.db`.
 
 ---
 
@@ -159,7 +159,7 @@ This is **Agent Accountability infrastructure.** The equivalent for autonomous A
 
 ## Tested
 
-**721 tests, 8 skipped, 0 failures** — CI across Python 3.10, 3.11, and 3.12.
+**824 tests, 8 skipped, 0 failures** — CI across Python 3.10, 3.11, and 3.12.
 
 ---
 

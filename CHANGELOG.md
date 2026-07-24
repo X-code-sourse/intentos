@@ -4,6 +4,16 @@ All notable changes to Intent OS are documented here.
 
 ---
 
+## v0.5.2 (2026-07-24)
+
+### Fixes
+
+- **README test badge** — 721 → 824 (matches actual test count)
+- **README database path** — `events.db` → `intent.db` (unified DB name)
+- **Git history cleanup** — Remove CLAUDE.md, GUIDE.md, STRATEGY.md from git history (local-only files)
+
+---
+
 ## v0.4.1 (2026-07-22)
 
 ### Bug Fixes
