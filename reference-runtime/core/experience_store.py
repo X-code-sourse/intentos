@@ -273,6 +273,32 @@ class ExperienceStore:
         with self._lock:
             conn = self._get_conn()
             try:
+                # ── Conflict resolution: if same agent + trigger exists, keep higher confidence ──
+                if structured_trigger:
+                    cursor = conn.execute(
+                        """SELECT experience_id, confidence FROM experiences
+                           WHERE agent_id = ? AND structured_trigger = ?
+                           LIMIT 1""",
+                        (agent_id, structured_trigger),
+                    )
+                    existing = cursor.fetchone()
+                    if existing is not None and existing["confidence"] >= confidence:
+                        # Existing experience is already as good or better — skip insert
+                        self._close_conn(conn)
+                        existing_full = self.get(existing["experience_id"])
+                        return existing_full if existing_full else {
+                            "experience_id": existing["experience_id"],
+                            "agent_id": agent_id,
+                            "type": type,
+                            "observation": observation,
+                        }
+                    elif existing is not None:
+                        # New experience has higher confidence — remove old one
+                        conn.execute(
+                            "DELETE FROM experiences WHERE experience_id = ?",
+                            (existing["experience_id"],),
+                        )
+
                 conn.execute(
                     """INSERT INTO experiences
                        (experience_id, agent_id, source_executions, type,
@@ -613,6 +639,166 @@ class ExperienceStore:
                 return True
             finally:
                 self._close_conn(conn)
+
+    # ── Memory management ────────────────────────────────────
+
+    @staticmethod
+    def compute_memory_score(confidence: float, usage_count: int,
+                              created_at: str) -> float:
+        """Score an experience's value (0.0–1.0) for retention decisions.
+
+        Combines confidence, usage frequency, and recency:
+
+            score = confidence * 0.4
+                  + min(usage_count / 10, 1) * 0.3
+                  + recency_factor * 0.3
+
+        Where ``recency_factor`` decays from 1.0 (today) to 0.0 (≥30 days old).
+
+        Args:
+            confidence: 0.0–1.0 confidence score.
+            usage_count: How many times this experience has been applied.
+            created_at: ISO 8601 creation timestamp.
+
+        Returns:
+            A float between 0.0 and 1.0.
+        """
+        recency_factor = 0.0
+        if created_at:
+            try:
+                from datetime import datetime, timezone
+                from datetime import timedelta
+                created = datetime.fromisoformat(created_at)
+                days_old = (datetime.now(timezone.utc) - created).days
+                recency_factor = max(0.0, min(1.0, (30 - days_old) / 30))
+            except (ValueError, TypeError):
+                pass
+
+        return (
+            confidence * 0.4
+            + min(usage_count / 10, 1.0) * 0.3
+            + recency_factor * 0.3
+        )
+
+    def prune(self, agent_id: str, keep: int = 50,
+              min_score: float = 0.15, dry_run: bool = False) -> dict[str, Any]:
+        """Prune low-value experiences for an agent.
+
+        Keeps the top *keep* experiences by memory score, then also
+        keeps any remaining experiences above *min_score*.  Deletes
+        the rest.
+
+        Args:
+            agent_id: The agent whose experiences to prune.
+            keep: Minimum number of high-value experiences to preserve
+                (default 50).
+            min_score: Experiences below this score AND outside the
+                top *keep* are deleted (default 0.15).
+            dry_run: If True, only report what would be deleted.
+
+        Returns:
+            A dict with ``deleted``, ``kept``, ``total``.
+        """
+        all_exps = self.list(agent_id=agent_id, limit=1000)
+
+        if not all_exps:
+            return {"total": 0, "deleted": 0, "kept": 0, "dry_run": dry_run}
+
+        # Score and sort descending
+        scored = sorted(
+            (
+                (exp, self.compute_memory_score(
+                    confidence=float(exp.get("confidence", 0)),
+                    usage_count=int(exp.get("usage_count", 0)),
+                    created_at=exp.get("created_at", ""),
+                ))
+                for exp in all_exps
+            ),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+
+        # Keep top N, plus anything above threshold
+        kept_ids: set[str] = {item[0]["experience_id"] for item in scored[:keep]}
+        for exp, score in scored[keep:]:
+            if score >= min_score:
+                kept_ids.add(exp["experience_id"])
+
+        # Everything else gets pruned
+        prune_ids = [
+            exp["experience_id"]
+            for exp, _ in scored
+            if exp["experience_id"] not in kept_ids
+        ]
+
+        result = {
+            "total": len(all_exps),
+            "deleted": len(prune_ids),
+            "kept": len(all_exps) - len(prune_ids),
+            "dry_run": dry_run,
+        }
+
+        if not dry_run and prune_ids:
+            for pid in prune_ids:
+                self.delete(pid)
+
+        return result
+
+    def memory_stats(self, agent_id: str) -> dict[str, Any]:
+        """Return memory health statistics for an agent."""
+        from datetime import datetime, timezone
+        from statistics import mean
+
+        all_exps = self.list(agent_id=agent_id, limit=10000)
+        if not all_exps:
+            return {
+                "total": 0,
+                "by_type": {},
+                "avg_confidence": 0.0,
+                "avg_usage_count": 0.0,
+                "avg_memory_score": 0.0,
+                "oldest_days": 0,
+                "prune_candidates": 0,
+            }
+
+        by_type: dict[str, int] = {}
+        confidences: list[float] = []
+        usage_counts: list[int] = []
+        scores: list[float] = []
+        oldest = ""
+        now = datetime.now(timezone.utc)
+
+        for exp in all_exps:
+            t = exp.get("type", "unknown")
+            by_type[t] = by_type.get(t, 0) + 1
+            conf = float(exp.get("confidence", 0))
+            confidences.append(conf)
+            uc = int(exp.get("usage_count", 0))
+            usage_counts.append(uc)
+            score = self.compute_memory_score(conf, uc, exp.get("created_at", ""))
+            scores.append(score)
+            if not oldest or exp.get("created_at", "") < oldest:
+                oldest = exp.get("created_at", "")
+
+        oldest_days = 0
+        if oldest:
+            try:
+                oldest_dt = datetime.fromisoformat(oldest)
+                oldest_days = (now - oldest_dt).days
+            except (ValueError, TypeError):
+                pass
+
+        prune_candidates = sum(1 for s in scores if s < 0.2)
+
+        return {
+            "total": len(all_exps),
+            "by_type": by_type,
+            "avg_confidence": round(mean(confidences), 4) if confidences else 0.0,
+            "avg_usage_count": round(mean(usage_counts), 2) if usage_counts else 0.0,
+            "avg_memory_score": round(mean(scores), 4) if scores else 0.0,
+            "oldest_days": oldest_days,
+            "prune_candidates": prune_candidates,
+        }
 
     def delete(self, experience_id: str) -> bool:
         """Delete an experience record.

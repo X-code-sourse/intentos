@@ -124,7 +124,7 @@ class TestRetrieveContext:
         for i in range(5):
             exp_store.create(agent_id="agent_test", type="failure_pattern",
                              observation=f"Error pattern {i}",
-                             structured_trigger="error", confidence=0.5)
+                             structured_trigger=f"error_{i}", confidence=0.5)
         results = retrieve_context("agent_test", "error", max_results=2, db_path=str(db))
         assert len(results) == 2
 

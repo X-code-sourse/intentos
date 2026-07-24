@@ -4,6 +4,19 @@ All notable changes to Intent OS are documented here.
 
 ---
 
+## v0.14.0 (2026-07-24)
+
+### Selective Memory — Decide What to Remember and Forget
+
+- **Memory scoring** — `compute_memory_score()` scores each experience by confidence (40%), usage count (30%), and recency (30%). High-score experiences are kept, low-score ones are candidates for pruning.
+- **Conflict resolution in experience creation** — When a new experience has the same `structured_trigger` as an existing one, the higher-confidence version wins. Low-confidence duplicates are automatically replaced.
+- **`intent-os memory stats <agent_id>`** — Shows memory health: total experiences, breakdown by type, average confidence/usage/score, oldest experience age, and prune candidate count.
+- **`intent-os memory prune <agent_id>`** — Removes low-value experiences. Keeps the top N by memory score, plus any above a minimum score threshold. Supports `--dry-run` for safe preview.
+- **Self-record dedup** — Self-recorded failure experiences use `structured_trigger` for conflict resolution, so repeated failures for the same API call don't create duplicates.
+- **13 new tests** — Memory scoring, conflict resolution (replace/keep/different trigger), prune with min score / top N / execution. 915 tests total, zero regressions.
+
+---
+
 ## v0.13.0 (2026-07-24)
 
 ### Active Memory — Agent Self-Records, User Feedback, Cross-Session Recall

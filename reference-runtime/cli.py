@@ -35,6 +35,7 @@ import commands.experience
 import commands.prune
 import commands.db
 import commands.feedback
+import commands.memory
 
 # All cmd_* functions are imported from command modules via the registry pattern below
 CMD_MAP = {
@@ -66,6 +67,7 @@ CMD_MAP = {
     "prune": commands.prune.cmd_prune,
     "db": commands.db.cmd_db,
     "feedback": commands.feedback.cmd_feedback,
+    "memory": commands.memory.cmd_memory,
 }
 
 def build_parser() -> argparse.ArgumentParser:
@@ -75,7 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Intent OS Reference Runtime - Open AI Capability Interoperability",
         epilog="Phase 0 - Prove that one Manifest can run on multiple runtimes.",
     )
-    parser.add_argument("--version", action="version", version="intent-os 0.13.0")
+    parser.add_argument("--version", action="version", version="intent-os 0.14.0")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -634,6 +636,22 @@ def build_parser() -> argparse.ArgumentParser:
     feedback_parser.add_argument("--observation", "-o", default="",
                                  help="What the feedback is about")
     feedback_parser.set_defaults(func=CMD_MAP["feedback"])
+
+    # memory
+    memory_parser = subparsers.add_parser("memory",
+        help="Manage agent memory health and pruning")
+    memory_sub = memory_parser.add_subparsers(dest="memory_action",
+                                              help="Memory actions")
+    mem_stats = memory_sub.add_parser("stats", help="Show memory health stats")
+    mem_stats.add_argument("agent_id", help="Agent ID")
+    mem_stats.set_defaults(func=CMD_MAP["memory"])
+    mem_prune = memory_sub.add_parser("prune", help="Prune low-value experiences")
+    mem_prune.add_argument("agent_id", help="Agent ID")
+    mem_prune.add_argument("--keep", type=int, default=50,
+                           help="Max experiences to keep (default 50)")
+    mem_prune.add_argument("--dry-run", action="store_true",
+                           help="Show what would be deleted without deleting")
+    mem_prune.set_defaults(func=CMD_MAP["memory"])
 
     # db
     db_parser = subparsers.add_parser("db",
