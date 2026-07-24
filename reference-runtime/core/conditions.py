@@ -33,7 +33,6 @@ class ConditionSyntaxError(Exception):
     pass
 
 
-@staticmethod
 def _normalize_value(v: Any) -> Any:
     """Normalize a value for comparison.
 

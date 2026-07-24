@@ -167,12 +167,10 @@ def export_agent(agent_id: str, db_path: str | None = None) -> dict[str, Any]:
 
         # Preferred models: query from events linked to this agent's traces
         model_counts: Counter = Counter()
-        trace_ids = [r["manifest_name"] for r in rows if r["manifest_name"]]
-        # Simpler approach: get model info from execution_records manifest_name
         for r in rows:
-            mn = r["manifest_name"]
-            if mn:
-                model_counts[mn] += 1
+            rid = r["runtime_id"]
+            if rid:
+                model_counts[rid] += 1
 
         reputation = AgentPackageReputation(
             total_executions=total,

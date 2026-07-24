@@ -348,10 +348,6 @@ class Scheduler:
                 except Exception as exc:
                     return None, str(exc)
 
-            # Run with timeout via a thread
-            exec_thread = threading.Thread(target=lambda: None)
-            exec_thread.start()
-
             # Simplified timeout handling — in production this would use
             # concurrent.futures.ThreadPoolExecutor with timeout
             try:

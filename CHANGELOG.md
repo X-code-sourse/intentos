@@ -4,6 +4,21 @@ All notable changes to Intent OS are documented here.
 
 ---
 
+## v0.15.0 (2026-07-24)
+
+### Code Hygiene — Comprehensive Audit Fixes
+
+- **Deleted `core/store_base.py`** — 121 lines of unused abstract base class. No store inherited from it.
+- **Fixed `preferred_models` bug** — Agent export was storing capability names (e.g. "financial_analysis") instead of model names (e.g. "gpt-4o") in the reputation summary. Now correctly queries `runtime_id`.
+- **Experience model unified** — Added `occurrence_count` and `source_data` fields to the canonical `Experience` dataclass in `core/models.py` for compatibility with the experience extractor. Schema migration for existing databases.
+- **Added `find_by_observation()` and `count()`** to the canonical `ExperienceStore` — used by the extractor for deduplication.
+- **`VALID_EXPERIENCE_TYPES` made public** — Renamed from `_VALID_EXPERIENCE_TYPES` to `VALID_EXPERIENCE_TYPES`. Updated to 7 types (was 4).
+- **`SecurityRisk` imported from `core.models`** — Added module-level comparison helpers (`_security_risk_ge`, `_security_risk_le`).
+- **Removed dead code** — Unused `ExecutionRecorder` import in `event_store.py`, zombie thread in `scheduler.py`, meaningless `@staticmethod` in `conditions.py`, redundant yaml import fallback in `pricing.py`.
+- **912 tests, 0 failures** — Deleted 3 `test_store_base` tests for the removed module.
+
+---
+
 ## v0.14.0 (2026-07-24)
 
 ### Selective Memory — Decide What to Remember and Forget

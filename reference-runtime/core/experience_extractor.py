@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Any
 
 from core.event_store import EventStore
+from core.models import Experience
 
 
 # ────────────────────────────────────────────────────────────────
@@ -84,7 +85,10 @@ class Experience:
         "failure_pattern",
         "success_strategy",
         "tool_preference",
+        "model_performance",
         "data_source_reliability",
+        "environment_constraint",
+        "user_feedback",
     )
 
 

@@ -36,13 +36,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from core.models import Experience, _VALID_EXPERIENCE_TYPES
+from core.models import Experience, VALID_EXPERIENCE_TYPES
 
 # Default database path
 EXPERIENCE_DB = str(Path.home() / ".intent-os" / "intent.db")
 
 # Current schema version — bump when columns are added
-_SCHEMA_VERSION = 2
+_SCHEMA_VERSION = 3
 
 CREATE_EXPERIENCES_TABLE = """
 CREATE TABLE IF NOT EXISTS experiences (
@@ -63,7 +63,9 @@ CREATE TABLE IF NOT EXISTS experiences (
     structured_situation TEXT NOT NULL DEFAULT '',
     structured_mistake TEXT NOT NULL DEFAULT '',
     structured_lesson TEXT NOT NULL DEFAULT '',
-    structured_trigger TEXT NOT NULL DEFAULT ''
+    structured_trigger TEXT NOT NULL DEFAULT '',
+    occurrence_count INTEGER NOT NULL DEFAULT 0,
+    source_data TEXT NOT NULL DEFAULT '{}'
 );
 """
 
@@ -183,6 +185,15 @@ class ExperienceStore:
                         f"ALTER TABLE experiences ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"
                     )
 
+            # ── Migration: schema version 3 (v0.15.0, code hygiene) ──
+            _HYGIENE_COLS = ["occurrence_count", "source_data"]
+            for col in _HYGIENE_COLS:
+                if col not in existing_cols:
+                    if col == "occurrence_count":
+                        conn.execute(f"ALTER TABLE experiences ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
+                    elif col == "source_data":
+                        conn.execute(f"ALTER TABLE experiences ADD COLUMN {col} TEXT NOT NULL DEFAULT '{{}}'")
+
             # Record latest schema version
             conn.execute("DELETE FROM _schema_version")
             conn.execute(
@@ -214,6 +225,8 @@ class ExperienceStore:
             "structured_mistake": row["structured_mistake"] if "structured_mistake" in row.keys() else "",
             "structured_lesson": row["structured_lesson"] if "structured_lesson" in row.keys() else "",
             "structured_trigger": row["structured_trigger"] if "structured_trigger" in row.keys() else "",
+            "occurrence_count": row["occurrence_count"] if "occurrence_count" in row.keys() else 0,
+            "source_data": _json_loads(row["source_data"]) if "source_data" in row.keys() and isinstance(row["source_data"], str) else {},
         }
 
     # ── CRUD ──
@@ -259,10 +272,10 @@ class ExperienceStore:
         Raises:
             ExperienceStoreError: If *type* is not one of the valid values.
         """
-        if type not in _VALID_EXPERIENCE_TYPES:
+        if type not in VALID_EXPERIENCE_TYPES:
             raise ExperienceStoreError(
                 f"Invalid experience type '{type}'. "
-                f"Must be one of: {', '.join(sorted(_VALID_EXPERIENCE_TYPES))}"
+                f"Must be one of: {', '.join(sorted(VALID_EXPERIENCE_TYPES))}"
             )
 
         exp_id = f"exp_{uuid.uuid4().hex[:12]}"
@@ -639,6 +652,28 @@ class ExperienceStore:
                 return True
             finally:
                 self._close_conn(conn)
+
+    def find_by_observation(self, agent_id: str, observation: str) -> dict[str, Any] | None:
+        """Find an experience by exact agent_id + observation match."""
+        conn = self._get_conn()
+        try:
+            cursor = conn.execute(
+                "SELECT * FROM experiences WHERE agent_id = ? AND observation = ? LIMIT 1",
+                (agent_id, observation),
+            )
+            row = cursor.fetchone()
+            return self._row_to_dict(row) if row else None
+        finally:
+            self._close_conn(conn)
+
+    def count(self) -> int:
+        """Total number of stored experiences."""
+        conn = self._get_conn()
+        try:
+            cursor = conn.execute("SELECT COUNT(*) AS cnt FROM experiences")
+            return cursor.fetchone()["cnt"]
+        finally:
+            conn.close()
 
     # ── Memory management ────────────────────────────────────
 

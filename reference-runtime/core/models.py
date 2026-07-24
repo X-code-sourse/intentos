@@ -455,7 +455,7 @@ class Evidence:
 # Evolution Layer — Experience (BluePrint Layer 7)
 # ──────────────────────────────────────────────
 
-_VALID_EXPERIENCE_TYPES = frozenset({
+VALID_EXPERIENCE_TYPES = frozenset({
     "failure_pattern",
     "success_strategy",
     "tool_preference",
@@ -489,6 +489,8 @@ class Experience:
     last_validated_at: str | None = None
     usage_count: int = 0
     success_rate_when_applied: float = 0.0
+    occurrence_count: int = 0           # experience_extractor compatibility
+    source_data: dict[str, Any] = field(default_factory=dict)  # experience_extractor compatibility
     expires_at: str | None = None
     # v0.10.0 — structured pattern fields (SPEC-0010 Layer 3)
     structured_situation: str = ""

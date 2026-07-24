@@ -130,14 +130,9 @@ def load_pricing() -> dict[str, dict[str, float]]:
 
     if PRICING_FILE.exists():
         try:
-            import yaml
+            import yaml  # type: ignore[import-untyped]
         except ImportError:
-            # If PyYAML isn't available, try the YAML parser bundled with
-            # the standard library (Python 3.13+) or fall back gracefully.
-            try:
-                import yaml  # type: ignore[no-redef]
-            except ImportError:
-                return pricing
+            return pricing
 
         try:
             with open(PRICING_FILE, "r", encoding="utf-8") as fh:

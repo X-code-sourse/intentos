@@ -124,7 +124,7 @@ def build_injection_prompt(agent_id: str,
     except Exception:
         pass
 
-    # ── 3. Recent / relevant experiences ──
+    # ── 6. Recent / relevant experiences ──
     if query:
         # Use context retrieval to find relevant experiences
         try:

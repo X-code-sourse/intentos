@@ -30,7 +30,6 @@ from pathlib import Path
 from typing import Any, Generator
 
 from core.models import Event, EventType, ExecutionRecord, ExecutionStatus
-from core.recorder import ExecutionRecorder
 
 
 # Unified database path — all stores share a single intent.db

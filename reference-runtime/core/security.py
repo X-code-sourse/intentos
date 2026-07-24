@@ -46,7 +46,7 @@ from typing import Any
 from pathlib import Path
 
 from core.event_store import EventStore
-from core.models import Event, EventType
+from core.models import Event, EventType, SecurityRisk
 
 
 # Unified default database path for the policy store
@@ -102,6 +102,26 @@ class SecurityRisk(Enum):
             if member.value == value.lower():
                 return member
         return cls.MEDIUM
+
+
+def _security_risk_ge(a: object, b: object) -> bool:
+    """Compare two SecurityRisk values (>=)."""
+    from core.models import SecurityRisk as _SR
+    levels = list(_SR)
+    try:
+        return levels.index(a) >= levels.index(b)
+    except (ValueError, IndexError):
+        return False
+
+
+def _security_risk_le(a: object, b: object) -> bool:
+    """Compare two SecurityRisk values (<=)."""
+    from core.models import SecurityRisk as _SR
+    levels = list(_SR)
+    try:
+        return levels.index(a) <= levels.index(b)
+    except (ValueError, IndexError):
+        return False
 
 
 # ════════════════════════════════════════════════════════════════
