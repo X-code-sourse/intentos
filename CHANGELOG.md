@@ -4,6 +4,19 @@ All notable changes to Intent OS are documented here.
 
 ---
 
+## v0.7.0 (2026-07-24)
+
+### Agent Package (.agent) — Portable Agent Asset
+
+- **`intent-os agent export <id>`** — Export an agent to a portable `.agent` JSON file containing identity, reputation summary, and experiences. Single file, human-readable, runtime-agnostic.
+- **`intent-os agent import <path.agent>`** — Import an agent from a `.agent` file into any Intent OS instance. Generates a new agent_id to avoid conflicts.
+- **`core/agent_package.py`** — New module defining the `.agent` format (spec_version 1.0, format `intent-os-agent-v1`), plus `export_agent()`, `import_agent()`, `export_agent_to_file()`, `import_agent_from_file()`.
+- **SPEC-0009 upgraded to Frozen v1.0** — Added complete `.agent` JSON schema, field descriptions, export/import behaviour spec, and lifecycle documentation.
+- **8 new tests** — Export roundtrip, empty experiences, empty reputation, name override, invalid format rejection, experience preservation. All 842 tests passing.
+- **Privacy by design** — `.agent` packages contain only identity + reputation summary. No raw execution data, no API keys, no prompts.
+
+---
+
 ## v0.6.0 (2026-07-24)
 
 ### Agent Profile — Agent as a Person

@@ -73,7 +73,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Intent OS Reference Runtime - Open AI Capability Interoperability",
         epilog="Phase 0 - Prove that one Manifest can run on multiple runtimes.",
     )
-    parser.add_argument("--version", action="version", version="intent-os 0.6.0")
+    parser.add_argument("--version", action="version", version="intent-os 0.7.0")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -390,6 +390,16 @@ def build_parser() -> argparse.ArgumentParser:
     asymc.add_argument("agent_id", help="Agent ID to sync")
     asymc.add_argument("--push", action="store_true", help="Push file edits back to SQLite")
     asymc.set_defaults(func=CMD_MAP["agent"])
+    # v0.7.0: agent export/import
+    aexport = agent_sub.add_parser("export", help="Export agent to portable .agent file")
+    aexport.add_argument("agent_id", help="Agent ID to export")
+    aexport.add_argument("--output", "-o", default=None, help="Output .agent file path")
+    aexport.set_defaults(func=CMD_MAP["agent"])
+    aimport = agent_sub.add_parser("import", help="Import agent from a .agent file")
+    aimport.add_argument("file", help="Path to the .agent file")
+    aimport.add_argument("--name", default=None, help="Override agent name on import")
+    aimport.add_argument("--owner", default=None, help="Set owner on import")
+    aimport.set_defaults(func=CMD_MAP["agent"])
     # Blueprint Phase 2: agent status + capability management
     ast = agent_sub.add_parser("status", help="Show agent execution statistics")
     ast.add_argument("agent_id", help="Agent ID")

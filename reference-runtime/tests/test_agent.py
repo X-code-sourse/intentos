@@ -261,3 +261,130 @@ class TestAgentProfile:
         fetched = store.get(agent.agent_id)
         assert fetched is not None
         assert fetched.traits == ["new1", "new2"]
+
+
+class TestAgentPackage:
+    """v0.7.0 - Agent export/import (.agent package)."""
+
+    def test_export_basic(self, tmp_path):
+        """Exporting an agent produces valid .agent JSON."""
+        from core.agent_store import AgentStore
+        from core.agent_package import export_agent
+
+        db = tmp_path / "test_export.db"
+        store = AgentStore(str(db))
+        agent = store.create(name="Test Agent", persona="Analyst",
+                             traits=["cautious"], avatar=":chart:")
+        pkg = export_agent(agent.agent_id, db_path=str(db))
+
+        assert pkg["spec_version"] == "1.0"
+        assert pkg["format"] == "intent-os-agent-v1"
+        assert pkg["identity"]["name"] == "Test Agent"
+        assert pkg["identity"]["persona"] == "Analyst"
+        assert pkg["identity"]["traits"] == ["cautious"]
+        assert pkg["identity"]["avatar"] == ":chart:"
+
+    def test_export_no_experiences(self, tmp_path):
+        """Export works when agent has no experiences."""
+        from core.agent_store import AgentStore
+        from core.agent_package import export_agent
+
+        db = tmp_path / "test_exp_empty.db"
+        store = AgentStore(str(db))
+        agent = store.create(name="No Exp Agent")
+        pkg = export_agent(agent.agent_id, db_path=str(db))
+        assert pkg["experiences"] == []
+
+    def test_export_reputation_empty(self, tmp_path):
+        """Export works when agent has no executions (reputation = zeros)."""
+        from core.agent_store import AgentStore
+        from core.agent_package import export_agent
+
+        db = tmp_path / "test_rep_empty.db"
+        store = AgentStore(str(db))
+        agent = store.create(name="No Exec Agent")
+        pkg = export_agent(agent.agent_id, db_path=str(db))
+        assert pkg["reputation"]["total_executions"] == 0
+        assert pkg["reputation"]["success_rate"] == 0.0
+
+    def test_import_roundtrip(self, tmp_path):
+        """Export then import creates a new agent with same identity."""
+        from core.agent_store import AgentStore
+        from core.agent_package import export_agent, import_agent
+
+        db = tmp_path / "test_rt.db"
+        store = AgentStore(str(db))
+        agent = store.create(name="Roundtrip Agent", persona="Tester",
+                             traits=["careful", "fast"], avatar=":bug:")
+
+        pkg = export_agent(agent.agent_id, db_path=str(db))
+        new_id = import_agent(pkg, db_path=str(db))
+
+        # Verify new agent has same identity but different ID
+        assert new_id != agent.agent_id
+        new_agent = store.get(new_id)
+        assert new_agent is not None
+        assert new_agent.name == "Roundtrip Agent"
+        assert new_agent.persona == "Tester"
+        assert new_agent.traits == ["careful", "fast"]
+        assert new_agent.avatar == ":bug:"
+
+    def test_import_with_name_override(self, tmp_path):
+        """Import with name_override changes the agent's name."""
+        from core.agent_store import AgentStore
+        from core.agent_package import export_agent, import_agent
+
+        db = tmp_path / "test_name_ovr.db"
+        store = AgentStore(str(db))
+        agent = store.create(name="Original Name", persona="Worker")
+        pkg = export_agent(agent.agent_id, db_path=str(db))
+
+        new_id = import_agent(pkg, name_override="New Name", db_path=str(db))
+        imported = store.get(new_id)
+        assert imported is not None
+        assert imported.name == "New Name"
+        assert imported.persona == "Worker"
+
+    def test_import_invalid_format(self, tmp_path):
+        """Importing invalid data raises ValueError."""
+        from core.agent_package import import_agent
+
+        import pytest
+        with pytest.raises(ValueError, match="Unsupported"):
+            import_agent({"spec_version": "999"})
+
+    def test_import_bad_format_field(self, tmp_path):
+        """Importing wrong format value raises ValueError."""
+        from core.agent_package import import_agent
+
+        import pytest
+        with pytest.raises(ValueError, match="Unknown"):
+            import_agent({"spec_version": "1.0", "format": "unknown-format",
+                          "identity": {"name": "x"}})
+
+    def test_import_experiences(self, tmp_path):
+        """Importing an agent with experiences preserves them."""
+        from core.agent_store import AgentStore
+        from core.experience_store import ExperienceStore
+        from core.agent_package import import_agent
+
+        pkg = {
+            "spec_version": "1.0",
+            "format": "intent-os-agent-v1",
+            "exported_at": "2026-07-24T12:00:00Z",
+            "identity": {"name": "Exp Agent", "persona": "Test"},
+            "reputation": {},
+            "experiences": [
+                {"type": "failure_pattern", "observation": "API timed out",
+                 "recommendation": "Retry with backoff", "confidence": 0.8},
+                {"type": "success_strategy", "observation": "Use caching",
+                 "recommendation": "Cache results for 5 min", "confidence": 0.6},
+            ],
+        }
+        new_id = import_agent(pkg)
+        exp_store = ExperienceStore()
+        exps = exp_store.list(agent_id=new_id, limit=10)
+        assert len(exps) == 2
+        types = {e["type"] for e in exps}
+        assert "failure_pattern" in types
+        assert "success_strategy" in types

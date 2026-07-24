@@ -46,6 +46,10 @@ def cmd_agent(args: Any) -> None:
         _cmd_delete(args)
     elif action == "sync":
         _cmd_sync(args)
+    elif action == "export":
+        _cmd_export(args)
+    elif action == "import":
+        _cmd_import(args)
     elif action == "status":
         _cmd_status(args)
     elif action == "capability":
@@ -618,7 +622,67 @@ def _sync_push(agent, agent_dir, store, yaml):
     if not updated:
         print("  No changes detected.")
     print()
-    print(f"  Sync complete. Run 'intent-os agent get {agent_id}' to verify.")
+def _cmd_export(args: Any) -> None:
+    """Export an agent to a portable .agent JSON file."""
+    from core.agent_package import export_agent_to_file
+
+    agent_id = args.agent_id
+    output_path = getattr(args, "output", None)
+
+    try:
+        result_path = export_agent_to_file(agent_id, output_path)
+    except RuntimeError as exc:
+        print(f"  Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    print()
+    print(f"  Agent exported to: {result_path}")
+    print()
+    print("  Import on another machine:")
+    print(f"    intent-os agent import {result_path}")
+    print()
+
+
+def _cmd_import(args: Any) -> None:
+    """Import an agent from a .agent JSON file."""
+    from core.agent_package import import_agent_from_file
+
+    file_path = args.file
+    name_override = getattr(args, "name", None)
+    owner_override = getattr(args, "owner", None)
+
+    try:
+        new_id = import_agent_from_file(
+            file_path,
+            name_override=name_override,
+            owner_override=owner_override,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"  Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    print()
+    print("  ================================================")
+    print("    Agent Imported")
+    print("  ================================================")
+    print()
+    print(f"  New Agent ID:  {new_id}")
+
+    import json
+    with open(file_path, "r", encoding="utf-8") as f:
+        pkg = json.load(f)
+    orig_id = pkg.get("identity", {}).get("agent_id", "unknown")
+    orig_name = pkg.get("identity", {}).get("name", "unknown")
+    print(f"  Original ID:   {orig_id}")
+    print(f"  Name:          {orig_name}")
+    persona = pkg.get("identity", {}).get("persona", "")
+    if persona:
+        print(f"  Role:          {persona}")
+    exps = pkg.get("experiences", [])
+    if exps:
+        print(f"  Experiences:   {len(exps)} experience(s) imported")
+    print()
+    print(f"  View profile:  intent-os agent get {new_id}")
     print()
 
 
