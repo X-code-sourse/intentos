@@ -9,49 +9,65 @@
 
 ## 一句话
 
-> **Intent OS 是 AI Agent 时代的执行基础设施——让 Agent 从一个不可预测的模型调用，变成一个拥有身份、上下文、执行记录、验证机制和治理体系的数字实体。**
+> **Intent OS is building the accountability layer for autonomous AI systems — the identity, execution record, verification, and governance infrastructure that makes Agent actions traceable, explainable, and auditable.  When an Agent acts, the world must be able to answer: who was it, what did it do, what evidence did it have, and who authorized it.**
 
 ---
 
-## 六层架构（从数据到治理）
+## 六层架构 — 全部服务于一个目的：Agent Accountability
+
+AI agents are crossing a line. They used to answer questions. Now they modify code, call APIs, write files, spend money — all on their own. But they have no identity card, no audit trail, no permission boundary, no way to prove their decisions were justified.
+
+The six layers of Intent OS are not arbitrary. Each one answers a specific accountability question:
+
+```
+Layer 1 — Context        "What was the agent supposed to do?"
+Layer 2 — Identity       "Who is this agent, and who does it represent?"
+Layer 3 — Execution      "What did it actually do?"
+Layer 4 — Verification   "Can we prove its claims are true?"
+Layer 5 — Governance     "Was it allowed to do that?"
+Layer 6 — Interoperability "Can its capabilities be discovered, reused, and trusted by others?"
+```
+
+Together, they form an **Agent Accountability System** — the equivalent for autonomous AI of what audit trails are to finance and what version control is to software.
 
 ```
                         Human / Organization
                                 │
-                                │
+                                │  "Who authorized this?"
 Layer 1 ┌───────────────────────────────────┐
         │         Context Layer             │
-        │  Agent 的"所知" — 项目、目标、约束  │
+        │  "What was it supposed to do?"     │
         └───────────────────────────────────┘
                                 │
                                 │
 Layer 2 ┌───────────────────────────────────┐
         │        Identity Layer             │
-        │  Agent 的"身份" — 谁、属于谁       │
+        │  "Who is this agent?"              │
         └───────────────────────────────────┘
                                 │
                                 │
 Layer 3 ┌───────────────────────────────────┐
         │       Execution Layer             │
-        │  Agent 的"行为" — 执行了什么        │  ← 当前入口
+        │  "What did it actually do?"        │  ← 当前入口
         └───────────────────────────────────┘
                                 │
                                 │
 Layer 4 ┌───────────────────────────────────┐
         │      Verification Layer           │
-        │  Agent 的"可信" — 来源、证据、置信度 │
+        │  "Can we prove its claims?"        │
         └───────────────────────────────────┘
                                 │
                                 │
 Layer 5 ┌───────────────────────────────────┐
         │       Governance Layer            │
-        │  Agent 的"边界" — 权限、策略、审计  │
+        │  "Was it allowed to do that?"      │
         └───────────────────────────────────┘
                                 │
                                 │
 Layer 6 ┌───────────────────────────────────┐
         │     Interoperability Layer        │
-        │  Agent 的"连接" — 发现、调用、迁移  │
+        │  "Can others discover and trust    │
+        │   its capabilities?"              │
         └───────────────────────────────────┘
 ```
 

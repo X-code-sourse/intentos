@@ -147,6 +147,12 @@ AI Agent → Intent OS Proxy → LLM (OpenAI / Anthropic / Ollama)
 **Today** it's a flight recorder — so you can trust what your agents do.
 **Tomorrow** it's an execution layer — so agents can be portable, governable, and composable across any runtime.
 
+But the real destination is bigger than either.
+
+The six layers of Intent OS — Identity, Execution, Verification, Governance, Interoperability — all serve one purpose: **making autonomous AI systems accountable.** When an agent acts, there must be a record of who it was, what it did, what evidence it had, and what policies it followed. This is not logging. It is accountability infrastructure.
+
+**Agent Accountability** is to the AI era what audit trails were to finance and what version control was to software. Someone needs to build that layer. Intent OS is the first attempt.
+
 [7 specs](https://github.com/haihaoxu/intentos/tree/main/specs), all frozen. 26 event types. 6 adapters. One format for every Agent execution.
 
 ---
