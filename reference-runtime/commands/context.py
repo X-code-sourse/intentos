@@ -38,6 +38,8 @@ def cmd_context(args: Any) -> None:
         _cmd_delete(args)
     elif action == "diff":
         _cmd_diff(args)
+    elif action == "resume":
+        _cmd_resume(args)
     else:
         print(f"Unknown context action: {action}", file=sys.stderr)
         sys.exit(1)
@@ -454,6 +456,129 @@ def _print_diff(result: dict[str, Any]) -> None:
     if scope_changed:
         print("  Scope: changed")
 
+    print()
+
+
+def _cmd_resume(args: Any) -> None:
+    """Resume an agent's last context — show where it left off."""
+    from commands.helpers import get_event_store
+    from core.agent_store import AgentStore
+    from core.experience_store import ExperienceStore
+
+    agent_id = args.agent_id
+
+    store = ContextStore()
+    agent_store = AgentStore()
+    agent = agent_store.get(agent_id)
+
+    if agent is None:
+        print(f"  Agent not found: {agent_id}", file=sys.stderr)
+        sys.exit(1)
+
+    # Find latest context
+    latest_ctx = store.get_latest_for_agent(agent_id)
+
+    # Find recent executions
+    try:
+        event_store = get_event_store()
+        records = event_store.query_records(limit=1000)
+        agent_records = [r for r in records
+                         if r.get("agent_id") == agent_id
+                         or (isinstance(r.get("agent_name"), str) and r["agent_name"] == agent.name)]
+        total = len(agent_records)
+        recent = sorted(agent_records,
+                        key=lambda r: r.get("created_at", "") or "",
+                        reverse=True)[:5]
+    except Exception:
+        total = 0
+        recent = []
+
+    # Count experiences
+    try:
+        exp_store = ExperienceStore()
+        exps = exp_store.list(agent_id=agent_id, limit=200)
+        exp_by_type: dict[str, int] = {}
+        for e in exps:
+            t = e.get("type", "unknown")
+            exp_by_type[t] = exp_by_type.get(t, 0) + 1
+        total_exps = len(exps)
+    except Exception:
+        exp_by_type = {}
+        total_exps = 0
+
+    avatar_line = f" {agent.avatar}" if agent.avatar else ""
+    persona_line = f" — {agent.persona}" if agent.persona else ""
+    status_icon = ">" if agent.status == "active" else "o"
+
+    print()
+    print(f"  ================================================")
+    print(f"    Context Resume")
+    print(f"  ================================================")
+    print()
+    print(f"  Agent:       {agent.name}{avatar_line}{persona_line}")
+    print(f"  ID:          {agent.agent_id}")
+    print(f"  {status_icon}  Status:      {agent.status}")
+    if agent.traits:
+        print(f"  Traits:      {', '.join(agent.traits)}")
+    print()
+
+    # Last context section
+    if latest_ctx:
+        history = store.get_history(latest_ctx["context_id"])
+        exec_count = 0
+        try:
+            event_store = get_event_store()
+            exec_count = len(event_store.get_executions_by_context(latest_ctx["context_id"]))
+        except Exception:
+            pass
+
+        print(f"  Last Context: {latest_ctx['context_id']}")
+        print(f"    Goal:      {latest_ctx.get('goal', '') or '(no goal set)'}")
+        print(f"    Scope:     {latest_ctx.get('task_scope', '') or '-'}")
+        print(f"    Version:   v{latest_ctx.get('version', 1)} ({len(history)} version(s))")
+        print(f"    Executions: {exec_count} record(s) linked")
+        if latest_ctx.get("constraints"):
+            print(f"    Constraints ({len(latest_ctx['constraints'])}):")
+            for c in latest_ctx["constraints"]:
+                print(f"      - {c}")
+        print()
+    else:
+        print(f"  Last Context: (none — this agent has no assigned contexts)")
+        print()
+
+    # Recent executions
+    if recent:
+        print(f"  Recent Executions ({total} total):")
+        print(f"  {'Date':<22} {'Task':<30} {'Result':<8} {'Cost':<8}")
+        print(f"  {'-'*68}")
+        for r in recent:
+            created = (r.get("created_at") or "?")[:19]
+            task = r.get("manifest_name") or r.get("capability") or "-"
+            status_r = r.get("status", "?")
+            status_sym = "OK" if status_r == "success" else "FAIL"
+            cost = f"${r.get('total_cost_usd', 0) or 0:.2f}"
+            print(f"  {created:<22} {task:<30} {status_sym:<8} {cost:<8}")
+        print()
+
+    # Experience summary
+    if total_exps > 0:
+        print(f"  Experience ({total_exps}):")
+        for etype, count in sorted(exp_by_type.items()):
+            print(f"    {etype:<22} {count}")
+        print()
+
+    # Next steps
+    if latest_ctx:
+        print(f"  Continue with this context:")
+        print(f"    intent-os context create --parent {latest_ctx['context_id']} \\")
+        print(f"      --name \"{latest_ctx['name']} (continued)\" \\")
+        print(f"      --goal \"Continue {latest_ctx.get('goal', 'work')[:60]}\"")
+        print()
+    print(f"  View agent profile:")
+    print(f"    intent-os agent get {agent_id}")
+    print()
+    print(f"  File system sync:")
+    print(f"    intent-os agent sync {agent_id}")
     print()
 
 

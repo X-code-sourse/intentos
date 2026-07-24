@@ -709,6 +709,27 @@ class ContextStore:
         finally:
             conn.close()
 
+    def get_latest_for_agent(self, agent_id: str) -> dict[str, Any] | None:
+        """Return the most recently assigned context for an agent.
+
+        Looks up the latest ``assigned_at`` timestamp in
+        ``context_assignments`` and returns the corresponding context.
+        Returns ``None`` if the agent has no assigned contexts.
+        """
+        conn = self._get_conn()
+        try:
+            cursor = conn.execute(
+                """SELECT c.* FROM context_assignments a
+                   JOIN execution_contexts c ON c.context_id = a.context_id
+                   WHERE a.agent_id = ?
+                   ORDER BY a.assigned_at DESC LIMIT 1""",
+                (agent_id,),
+            )
+            row = cursor.fetchone()
+            return _row_to_context(row) if row else None
+        finally:
+            conn.close()
+
 
 def _row_to_context(row: Any) -> dict[str, Any]:
     return {

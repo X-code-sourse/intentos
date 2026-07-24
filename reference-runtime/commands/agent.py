@@ -7,6 +7,7 @@ track executions, enforce policies, and generate audit trails.
     intent-os agent list [--team team_id]
     intent-os agent get <agent_id>
     intent-os agent delete <agent_id>
+    intent-os agent sync <agent_id> [--push]
     intent-os agent team create --name "My Team" [--description "..."] [--owner user@email]
     intent-os agent team list
     intent-os agent team get <team_id>
@@ -14,7 +15,9 @@ track executions, enforce policies, and generate audit trails.
 """
 from __future__ import annotations
 
+import re
 import sys
+from pathlib import Path
 from typing import Any
 
 from core.agent_store import AgentStore
@@ -41,6 +44,8 @@ def cmd_agent(args: Any) -> None:
         _cmd_update(args)
     elif action == "delete":
         _cmd_delete(args)
+    elif action == "sync":
+        _cmd_sync(args)
     elif action == "status":
         _cmd_status(args)
     elif action == "capability":
@@ -382,6 +387,239 @@ def _cmd_update(args: Any) -> None:
         if updated.policy_ids:
             print(f"  Policies:  {', '.join(updated.policy_ids)}")
         print()
+
+
+def _cmd_sync(args: Any) -> None:
+    """Sync agent data to/from filesystem files.
+
+    Without --push: writes agent identity + experiences + recent activity
+    to ``~/.intent-os/agents/<id>/`` as human-readable YAML and Markdown.
+
+    With --push: reads IDENTITY.yaml and EXPERIENCES.md back into SQLite.
+    """
+    from core.experience_store import ExperienceStore
+
+    agent_id = args.agent_id
+    push_mode = getattr(args, "push", False)
+
+    store = AgentStore()
+    agent = store.get(agent_id)
+    if agent is None:
+        print(f"  Agent not found: {agent_id}", file=sys.stderr)
+        sys.exit(1)
+
+    agent_dir = Path.home() / ".intent-os" / "agents" / agent_id
+    agent_dir.mkdir(parents=True, exist_ok=True)
+
+    import yaml
+
+    if push_mode:
+        _sync_push(agent, agent_dir, store, yaml)
+    else:
+        _sync_pull(agent, agent_dir, store, yaml)
+
+
+def _sync_pull(agent, agent_dir, store, yaml):
+    """Pull agent data from SQLite -> filesystem."""
+    from commands.helpers import get_event_store
+    from core.experience_store import ExperienceStore
+
+    agent_id = agent.agent_id
+
+    # IDENTITY.yaml
+    identity = {
+        "agent_id": agent.agent_id,
+        "name": agent.name,
+        "persona": agent.persona or "",
+        "traits": agent.traits or [],
+        "avatar": agent.avatar or "",
+        "owner": agent.owner or "",
+        "status": agent.status,
+        "capabilities": agent.capabilities or [],
+        "created_at": agent.created_at or "",
+        "last_seen_at": agent.last_seen_at or "",
+    }
+    with open(agent_dir / "IDENTITY.yaml", "w", encoding="utf-8") as f:
+        yaml.dump(identity, f, default_flow_style=False, allow_unicode=True)
+
+    # CAPABILITIES.yaml
+    caps = {"capabilities": agent.capabilities or []}
+    with open(agent_dir / "CAPABILITIES.yaml", "w", encoding="utf-8") as f:
+        yaml.dump(caps, f, default_flow_style=False, allow_unicode=True)
+
+    # EXPERIENCES.md
+    _EXP_ICONS_REV = {
+        "failure_pattern": "[-]",
+        "success_strategy": "[+]",
+        "tool_preference": "[=]",
+        "model_performance": "[M]",
+        "data_source_reliability": "[D]",
+        "environment_constraint": "[E]",
+        "user_feedback": "[U]",
+    }
+    lines = [f"# {agent_id} - Experiences\n\n"]
+    try:
+        exp_store = ExperienceStore()
+        exps = exp_store.list(agent_id=agent_id, limit=200)
+        grouped = {}
+        for e in exps:
+            t = e.get("type", "unknown")
+            grouped.setdefault(t, []).append(e)
+        for etype in ("failure_pattern", "success_strategy", "tool_preference",
+                       "model_performance", "data_source_reliability",
+                       "environment_constraint", "user_feedback"):
+            items = grouped.get(etype, [])
+            icon = _EXP_ICONS_REV.get(etype, "[?]")
+            lines.append(f"## {etype} ({len(items)})\n\n")
+            for exp in items:
+                obs = (exp.get("observation") or "").strip()
+                rec = (exp.get("recommendation") or "").strip()
+                lines.append(f"- {icon} {obs}\n")
+                if rec:
+                    lines.append(f"  {rec}\n")
+                lines.append("\n")
+    except Exception:
+        lines.append("_(Experience Store unavailable)_\n")
+
+    with open(agent_dir / "EXPERIENCES.md", "w", encoding="utf-8") as f:
+        f.writelines(lines)
+
+    # RECENT.md
+    recent_lines = [f"# {agent_id} - Recent Activity\n\n"]
+    try:
+        event_store = get_event_store()
+        records = event_store.query_records(limit=1000)
+        agent_records = [r for r in records
+                         if r.get("agent_id") == agent_id
+                         or (isinstance(r.get("agent_name"), str) and r["agent_name"] == agent.name)]
+        total = len(agent_records)
+        success = sum(1 for r in agent_records if r.get("status") == "success")
+        recent = sorted(agent_records,
+                        key=lambda r: r.get("created_at", "") or "",
+                        reverse=True)[:5]
+
+        recent_lines.append(f"Total executions: {total}\n")
+        recent_lines.append(f"Success rate:     {success/max(total,1):.0%}\n\n")
+
+        if recent:
+            recent_lines.append("| Date | Task | Result | Cost |\n")
+            recent_lines.append("|------|------|--------|------|\n")
+            for r in recent:
+                created = (r.get("created_at") or "?")[:19]
+                task = r.get("manifest_name") or r.get("capability") or "-"
+                status_r = r.get("status", "?")
+                status_sym = "OK" if status_r == "success" else "FAIL"
+                cost = f"${r.get('total_cost_usd', 0) or 0:.2f}"
+                recent_lines.append(f"| {created} | {task} | {status_sym} | {cost} |\n")
+        else:
+            recent_lines.append("_(no execution data yet)_\n")
+    except Exception:
+        recent_lines.append("_(Event Store unavailable)_\n")
+
+    with open(agent_dir / "RECENT.md", "w", encoding="utf-8") as f:
+        f.writelines(recent_lines)
+
+    print()
+    print(f"  Synced agent to: {agent_dir}")
+    print()
+    print(f"    IDENTITY.yaml      - agent identity (YAML, editable)")
+    print(f"    CAPABILITIES.yaml  - registered capabilities")
+    print(f"    EXPERIENCES.md     - learned experiences (Markdown, editable)")
+    print(f"    RECENT.md          - recent activity (auto-generated)")
+    print()
+    print(f"  Edit EXPERIENCES.md then sync back:")
+    print(f"    intent-os agent sync {agent_id} --push")
+    print()
+
+
+def _sync_push(agent, agent_dir, store, yaml):
+    """Push filesystem edits back to SQLite."""
+    from core.experience_store import ExperienceStore
+
+    agent_id = agent.agent_id
+    updated = False
+
+    # Read IDENTITY.yaml -> update agent
+    identity_path = agent_dir / "IDENTITY.yaml"
+    if identity_path.exists():
+        with open(identity_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+        updates = {}
+        for field in ("persona", "avatar", "owner", "status"):
+            if field in data and str(data[field]) != str(getattr(agent, field, "")):
+                updates[field] = str(data[field])
+        if "traits" in data and isinstance(data["traits"], list):
+            current_traits = list(agent.traits)
+            if data["traits"] != current_traits:
+                updates["traits"] = data["traits"]
+        if updates:
+            store.update_agent(agent_id, **updates)
+            updated = True
+            print(f"  Updated agent identity from IDENTITY.yaml")
+
+    # Read EXPERIENCES.md -> write experiences
+    exp_path = agent_dir / "EXPERIENCES.md"
+    if exp_path.exists():
+        exp_store = ExperienceStore()
+        _EXP_ICONS_FWD = {
+            "[-]": "failure_pattern",
+            "[+]": "success_strategy",
+            "[=]": "tool_preference",
+            "[M]": "model_performance",
+            "[D]": "data_source_reliability",
+            "[E]": "environment_constraint",
+            "[U]": "user_feedback",
+        }
+        with open(exp_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        parsed = []
+        prev_item = None  # (type, obs, rec) — saved before each new item
+
+        for line in content.split("\n"):
+            item_match = re.match(r"^\s*-\s+(\[[-+=MDEU]\])\s+(.+)", line)
+            if item_match:
+                # Save previous item before starting a new one
+                if prev_item is not None:
+                    parsed.append({"type": prev_item[0], "observation": prev_item[1].strip(), "recommendation": prev_item[2].strip()})
+                icon = item_match.group(1)
+                itype = _EXP_ICONS_FWD.get(icon, "failure_pattern")
+                iobs = item_match.group(2)
+                prev_item = [itype, iobs, ""]
+                continue
+
+            rec_match = re.match(r"^\s{2,}(.+)", line)
+            if rec_match and prev_item is not None:
+                prev_item[2] += " " + rec_match.group(1).strip()
+
+        if prev_item is not None:
+            parsed.append({"type": prev_item[0], "observation": prev_item[1].strip(), "recommendation": prev_item[2].strip()})
+
+        if parsed:
+            existing = exp_store.list(agent_id=agent_id, limit=500)
+            existing_obs = {e.get("observation", "").strip() for e in existing}
+            new_count = 0
+            for p in parsed:
+                if p["observation"] not in existing_obs:
+                    exp_store.create(
+                        agent_id=agent_id,
+                        type=p["type"],
+                        observation=p["observation"],
+                        recommendation=p["recommendation"],
+                    )
+                    existing_obs.add(p["observation"])
+                    new_count += 1
+            if new_count:
+                print(f"  Added {new_count} new experience(s) from EXPERIENCES.md")
+                updated = True
+            else:
+                print(f"  No new experiences to add (experiences matched existing)")
+
+    if not updated:
+        print("  No changes detected.")
+    print()
+    print(f"  Sync complete. Run 'intent-os agent get {agent_id}' to verify.")
+    print()
 
 
 def _cmd_status(args: Any) -> None:

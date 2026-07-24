@@ -385,6 +385,11 @@ def build_parser() -> argparse.ArgumentParser:
     ad = agent_sub.add_parser("delete", help="Delete an agent")
     ad.add_argument("agent_id", help="Agent ID to delete")
     ad.set_defaults(func=CMD_MAP["agent"])
+    # v0.6.0: sync agent data to/from filesystem
+    asymc = agent_sub.add_parser("sync", help="Sync agent data to/from filesystem files")
+    asymc.add_argument("agent_id", help="Agent ID to sync")
+    asymc.add_argument("--push", action="store_true", help="Push file edits back to SQLite")
+    asymc.set_defaults(func=CMD_MAP["agent"])
     # Blueprint Phase 2: agent status + capability management
     ast = agent_sub.add_parser("status", help="Show agent execution statistics")
     ast.add_argument("agent_id", help="Agent ID")
@@ -461,6 +466,9 @@ def build_parser() -> argparse.ArgumentParser:
     ctx_diff.add_argument("context_id_b", nargs="?", default=None,
                           help="Secondary context ID (omit to compare current vs previous version)")
     ctx_diff.set_defaults(func=CMD_MAP["context"])
+    ctx_resume = ctx_sub.add_parser("resume", help="Resume an agent's last context")
+    ctx_resume.add_argument("agent_id", help="Agent ID to resume")
+    ctx_resume.set_defaults(func=CMD_MAP["context"])
 
     # evidence
     evi_parser = subparsers.add_parser("evidence",
